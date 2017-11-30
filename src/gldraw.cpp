@@ -46,9 +46,9 @@ void updateVisibility(int state )
   }
 }
 
-#define HP_XSIZE 100
-#define HP_YSIZE 100
-#define HP_GRIDSIZE 1.0
+#define HP_XSIZE 200
+#define HP_YSIZE 200
+#define HP_GRIDSIZE 2.0
 #define HP_XMID (HP_GRIDSIZE * HP_XSIZE / 2)
 #define HP_YMID (HP_GRIDSIZE * HP_YSIZE / 2)
 
@@ -64,8 +64,8 @@ void initHeightPlane()
   for( x = 0; x < HP_XSIZE; x++ ) {
     for( y = 0; y < HP_YSIZE; y++ ) {
       double h;
-      h = sin( x * (M_PI * 2 / HP_XSIZE) * 4);
-      h += cos( y * (M_PI * 2 / HP_XSIZE) * 3);
+      h = sin( x * (M_PI * 2 / HP_XSIZE) * 6) * 3 + sin( x * (M_PI * 2 / HP_XSIZE) * 4 ) * 3;
+      h += cos( y * (M_PI * 2 / HP_XSIZE) * 5.3) * 2.1 +  cos( y * (M_PI * 2 / HP_XSIZE) * 4.1) * 3;
       g_heightPlane[ x ][ y ] = h * 1.5;
     }
   }
@@ -106,6 +106,23 @@ float getHeightAt( float fx, float fy )
   return h;
 }
 
+GLuint filter;                      // Which Filter To Use
+GLuint fogMode[]= { GL_EXP, GL_EXP2, GL_LINEAR };   // Storage For Three Types Of Fog
+GLuint fogfilter= 0;                    // Which Fog To Use
+GLfloat fogColor[4]= {0.1f, 0.5f, 0.75f, 1.0f};      // Fog Color
+
+
+void setFog()
+{
+  glFogi(GL_FOG_MODE, fogMode[fogfilter]);        // Fog Mode
+  glFogfv(GL_FOG_COLOR, fogColor);            // Set Fog Color
+  glFogf(GL_FOG_DENSITY, 0.01f);              // How Dense Will The Fog Be
+  glHint(GL_FOG_HINT, GL_DONT_CARE);          // Fog Hint Value
+  glFogf(GL_FOG_START, 0.1f);             // Fog Start Depth
+  glFogf(GL_FOG_END, 200.0f);               // Fog End Depth
+  glEnable(GL_FOG);                   // Enables GL_FOG
+}
+
 
 void init()
 {
@@ -142,15 +159,15 @@ int main( int argc, char **argv )
   return 0;
 }
 
-  GLfloat ambientLightGlobal[] = {0.2f, 0.2f, 0.2f, 1.0f};
-  GLfloat lightPos[] ={0.5, 0.8, -0.6, 0.0};
-  GLfloat ambientLight[] = {0.0f, 0.0f, 0.0f, 1.0f};
-  GLfloat diffuseLight[] = {1.0f, 1.0f, 1.0f, 1.0f};
-  GLfloat specularLight[] = {1.0f, 1.0f, 1.0f, 1.0f};
-  GLfloat materialColor1[] = {0.4f, 0.5f, 0.1f, 0.9f};
-  GLfloat materialEmission[] = {0.0f, 0.0f, 0.0f, 1.0f};
-  GLfloat materialAmbient[] = {0.4f, 0.5f, 0.1f, 1.0f};
-  GLfloat materialSpecular[] = {0.41, 0.52, 0.11, 0.2};
+GLfloat ambientLightGlobal[] = {0.2f, 0.2f, 0.2f, 1.0f};
+GLfloat lightPos[] ={0.5, 0.8, -0.6, 0.0};
+GLfloat ambientLight[] = {0.0f, 0.0f, 0.0f, 1.0f};
+GLfloat diffuseLight[] = {1.0f, 1.0f, 1.0f, 1.0f};
+GLfloat specularLight[] = {1.0f, 1.0f, 1.0f, 1.0f};
+GLfloat materialColor1[] = {0.4f, 0.5f, 0.1f, 0.9f};
+GLfloat materialEmission[] = {0.0f, 0.0f, 0.0f, 1.0f};
+GLfloat materialAmbient[] = {0.4f, 0.5f, 0.1f, 1.0f};
+GLfloat materialSpecular[] = {0.41, 0.52, 0.11, 0.2};
 
 float lp = 0.0;
 void display()
@@ -189,6 +206,9 @@ void display()
   // Clear to sky color / draw sky
   glClearColor( 0.1, 0.5, 0.75, 1.0 );
 
+  setFog();
+
+
   // set global ambient
 
   // Set light 
@@ -198,16 +218,16 @@ void display()
   glLightfv(GL_LIGHT0, GL_AMBIENT, ambientLight);
   glLightfv(GL_LIGHT0, GL_SPECULAR, specularLight);
 
-	{
-		float sum = 0.0;
-		for( int i = 0; i < 3; i++ ) {
-			sum += lightPos[i];
-		}
+  {
+    float sum = 0.0;
+    for( int i = 0; i < 3; i++ ) {
+      sum += lightPos[i];
+    }
 
-		for( int i = 0; i < 3; i++ ) {
-			lightPos[i] = lightPos[i] / sum;
-		}
-	}
+    for( int i = 0; i < 3; i++ ) {
+      lightPos[i] = lightPos[i] / sum;
+    }
+  }
 
   glLightfv(GL_LIGHT0, GL_POSITION, lightPos);
 
