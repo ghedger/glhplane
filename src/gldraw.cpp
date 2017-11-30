@@ -5,6 +5,7 @@
 
 #include <GL/glut.h>
 #include <GL/glu.h>
+#include <glm/glm.hpp>
 #include <unistd.h>
 #include <pthread.h>
 #include <math.h>
@@ -111,15 +112,14 @@ GLuint fogMode[]= { GL_EXP, GL_EXP2, GL_LINEAR };   // Storage For Three Types O
 GLuint fogfilter= 0;                    // Which Fog To Use
 GLfloat fogColor[4]= {0.1f, 0.5f, 0.75f, 1.0f};      // Fog Color
 
-
 void setFog()
 {
   glFogi(GL_FOG_MODE, fogMode[fogfilter]);        // Fog Mode
   glFogfv(GL_FOG_COLOR, fogColor);            // Set Fog Color
-  glFogf(GL_FOG_DENSITY, 0.01f);              // How Dense Will The Fog Be
-  glHint(GL_FOG_HINT, GL_DONT_CARE);          // Fog Hint Value
+  glFogf(GL_FOG_DENSITY, 0.0025f);              // How Dense Will The Fog Be
+  glHint(GL_FOG_HINT, GL_NICEST);          // Fog Hint Value
   glFogf(GL_FOG_START, 0.1f);             // Fog Start Depth
-  glFogf(GL_FOG_END, 200.0f);               // Fog End Depth
+  glFogf(GL_FOG_END, 300.0f);               // Fog End Depth
   glEnable(GL_FOG);                   // Enables GL_FOG
 }
 
@@ -235,7 +235,7 @@ void display()
   glLoadIdentity();
 
   // Set up camera
-  gluPerspective( 45, double(viewport[2])/viewport[3], 0.01, 100 );
+  gluPerspective( 45, double(viewport[2])/viewport[3], 0.01, 300 );
   glMatrixMode(GL_MODELVIEW);
   glLoadIdentity();
   gluLookAt( g_xpos,
