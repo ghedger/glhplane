@@ -77,12 +77,18 @@ void drawHeightPlane()
   for( x = 0; x < HP_XSIZE - 1; x++ ) {
     for( y = 0; y < HP_YSIZE - 1; y++ ) {
       glVertex3f( (double) x * HP_GRIDSIZE, (double) y * HP_GRIDSIZE, g_heightPlane[ x ][ y ] );
+      glNormal3f( (double) x * HP_GRIDSIZE, (double) y * HP_GRIDSIZE, g_heightPlane[ x ][ y ] );
       glVertex3f( (double) ( x + 1 ) * HP_GRIDSIZE , (double) y * HP_GRIDSIZE, g_heightPlane[ x + 1 ][ y ] );
+      glNormal3f( (double) ( x + 1 ) * HP_GRIDSIZE , (double) y * HP_GRIDSIZE, g_heightPlane[ x + 1 ][ y ] );
       glVertex3f( (double) x * HP_GRIDSIZE, (double) ( y + 1) * HP_GRIDSIZE, g_heightPlane[ x ][ y + 1 ] );
+      glNormal3f( (double) x * HP_GRIDSIZE, (double) ( y + 1) * HP_GRIDSIZE, g_heightPlane[ x ][ y + 1 ] );
 
       glVertex3f( (double) ( x + 1 ) * HP_GRIDSIZE , (double) y * HP_GRIDSIZE, g_heightPlane[ x + 1 ][ y ] );
+      glNormal3f( (double) ( x + 1 ) * HP_GRIDSIZE , (double) y * HP_GRIDSIZE, g_heightPlane[ x + 1 ][ y ] );
       glVertex3f( (double) ( x + 1) * HP_GRIDSIZE , (double) ( y + 1 ) * HP_GRIDSIZE, g_heightPlane[ x + 1 ][ y + 1 ] );
+      glNormal3f( (double) ( x + 1) * HP_GRIDSIZE , (double) ( y + 1 ) * HP_GRIDSIZE, g_heightPlane[ x + 1 ][ y + 1 ] );
       glVertex3f( (double) x * HP_GRIDSIZE, (double) ( y + 1 ) * HP_GRIDSIZE, g_heightPlane[ x ][ y + 1 ] );
+      glNormal3f( (double) x * HP_GRIDSIZE, (double) ( y + 1 ) * HP_GRIDSIZE, g_heightPlane[ x ][ y + 1 ] );
     }
   }
 }
@@ -122,7 +128,7 @@ int main( int argc, char **argv )
   glutInitDisplayMode( GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH );
   glutInitWindowSize( 512, 512 );
 
-  g_window = glutCreateWindow( "gimbal_lock" );
+  g_window = glutCreateWindow( "Sunny Meadow" );
   glutDisplayFunc( display );
   glutKeyboardFunc( keyboard );
   glutSpecialFunc( specialKeys );
@@ -136,59 +142,73 @@ int main( int argc, char **argv )
   return 0;
 }
 
-  GLfloat lightPos[] ={g_xpos, g_ypos, 2.0, 1.0};
-  GLfloat ambientLight[] = {0.6f, 0.6f, 0.6f, 0.5f};
-  GLfloat lightColor[] = {0.7f, 0.7f, 0.7f, 0.7f};
-  GLfloat specularLight[] = {1.0f, 1.0f, 1.0f, 0.5f};
+  GLfloat ambientLightGlobal[] = {0.2f, 0.2f, 0.2f, 1.0f};
+  GLfloat lightPos[] ={0.5, 0.8, -0.6, 0.0};
+  GLfloat ambientLight[] = {0.0f, 0.0f, 0.0f, 1.0f};
+  GLfloat diffuseLight[] = {1.0f, 1.0f, 1.0f, 1.0f};
+  GLfloat specularLight[] = {1.0f, 1.0f, 1.0f, 1.0f};
   GLfloat materialColor1[] = {0.4f, 0.5f, 0.1f, 0.9f};
-  GLfloat materialEmissionColor[] = {0.1f, 0.6f, 0.1f, 0.1f};
-  GLfloat materialAmbientColor[] = {1.0f, 0.0f, 0.0f, 0.3f};
-  GLfloat materialSpecular[] = {1.0, 1.0, 1.0, 1.0};
+  GLfloat materialEmission[] = {0.0f, 0.0f, 0.0f, 1.0f};
+  GLfloat materialAmbient[] = {0.4f, 0.5f, 0.1f, 1.0f};
+  GLfloat materialSpecular[] = {0.41, 0.52, 0.11, 0.2};
 
 float lp = 0.0;
 void display()
 {
-#if 0
-  materialAmbientColor[1] += 0.01;
-  if(materialAmbientColor[1] > 1.0)
-    materialAmbientColor[1] = 0;
-
-  materialEmissionColor[1] += 0.02;
-  if(materialEmissionColor[1] > 1.0)
-    materialEmissionColor[1] = 0;
-  materialSpecular[1] += 0.02;
-  if(materialSpecular[1] > 1.0)
-    materialSpecular[1] = 0;
-
-#endif
   glPushMatrix();
   glLoadIdentity();
 
-  lp += 0.05;
-  lightPos[2] = sin(lp) * 4;
+  // Rotate the image
+  glMatrixMode( GL_MODELVIEW );         // Current matrix affects objects positions
+  glLoadIdentity();                  // Initialize to the identity
 
+  glTranslatef( HP_XMID, HP_YMID, 0.0 );               // Translate rotation center from origin
+  glRotatef( g_angle, g_rotX, g_rotY, g_rotZ );
+  glTranslatef( -HP_XMID, -HP_YMID, 0.0 );            // Translate rotation center to origin
+
+  glMultMatrixf(mo);
+
+  glGetFloatv( GL_MODELVIEW_MATRIX, mo );
+  glPopMatrix();
 
   glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
   GLint viewport[4];
   glGetIntegerv( GL_VIEWPORT, viewport );
 
-  glLightModelfv(GL_LIGHT_MODEL_AMBIENT, ambientLight);
+  glLightModelfv(GL_LIGHT_MODEL_AMBIENT, ambientLightGlobal);
 
   glEnable(GL_DEPTH_TEST);
-  glEnable(GL_LIGHTING);
-//  glEnable(GL_LIGHT0);
   glEnable(GL_NORMALIZE);
+  glEnable(GL_LIGHTING);
+  glEnable(GL_LIGHT0);
   glShadeModel(GL_SMOOTH);
-  //Disable color materials, so that glMaterial calls work
-  glDisable(GL_COLOR_MATERIAL);
 
-  glClearColor( 0.1, 0.5, 0.75, 1 );
+  glEnable(GL_COLOR_MATERIAL);
 
+  // Clear to sky color / draw sky
+  glClearColor( 0.1, 0.5, 0.75, 1.0 );
+
+  // set global ambient
+
+  // Set light 
   //Diffuse (non-shiny) light component
-  glLightfv(GL_LIGHT0, GL_DIFFUSE, lightColor);
+  glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuseLight);
   //Specular (shiny) light component
+  glLightfv(GL_LIGHT0, GL_AMBIENT, ambientLight);
   glLightfv(GL_LIGHT0, GL_SPECULAR, specularLight);
+
+	{
+		float sum = 0.0;
+		for( int i = 0; i < 3; i++ ) {
+			sum += lightPos[i];
+		}
+
+		for( int i = 0; i < 3; i++ ) {
+			lightPos[i] = lightPos[i] / sum;
+		}
+	}
+
   glLightfv(GL_LIGHT0, GL_POSITION, lightPos);
 
   glMatrixMode(GL_PROJECTION);
@@ -214,10 +234,11 @@ void display()
   glPolygonMode( GL_FRONT, GL_FILL);
 
   glBegin( GL_TRIANGLES );
-  glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, materialAmbientColor);
-  //glMaterialfv(GL_FRONT, GL_SPECULAR, materialSpecular);
-  glMaterialfv(GL_FRONT, GL_EMISSION, materialEmissionColor);
-  //glMaterialf(GL_FRONT, GL_SHININESS,0.4); //The shininess parameter
+  glColor3f(0.3,0.6,0.2);
+  glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, materialAmbient);
+  glMaterialfv(GL_FRONT, GL_SPECULAR, materialSpecular);
+  glMaterialfv(GL_FRONT, GL_EMISSION, materialEmission);
+  glMaterialf(GL_FRONT, GL_SHININESS,100.8); //The shininess parameter
   drawHeightPlane();
   glEnd();
 
@@ -241,24 +262,8 @@ void update_mo( float angle, float x, float y, float z )
   g_rotX = x;
   g_rotY = y;
   g_rotZ = z;
+  g_angle = angle;
 
-  glPushMatrix();
-  glLoadIdentity();
-
-  // Rotate the image
-  glMatrixMode( GL_MODELVIEW );         // Current matrix affects objects positions
-  glLoadIdentity();                  // Initialize to the identity
-
-  glTranslatef( HP_XMID, HP_YMID, 0.0 );               // Translate rotation center from origin
-  glRotatef( angle, x,y,z );
-  glTranslatef( -HP_XMID, -HP_YMID, 0.0 );            // Translate rotation center to origin
-
-  glMultMatrixf(mo);
-
-  glGetFloatv( GL_MODELVIEW_MATRIX, mo );
-  glPopMatrix();
-
-  //glutPostRedisplay();
 }
 
 void keyboard( unsigned char key, int x, int y )
@@ -299,7 +304,6 @@ void specialKeys( int key, int x, int y )
 {
   switch( key ) {
     case GLUT_KEY_DOWN:
-      cout << "UP pressed" << std::endl;
       g_xpos += sin(g_xyDir);
       g_ypos += cos(g_xyDir);
       break;
