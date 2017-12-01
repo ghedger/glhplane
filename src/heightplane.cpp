@@ -67,22 +67,36 @@ bool HeightPlane::initHeightPlane()
       //atten = ( float ) (HP_XMID / pow(atten, 2) * atten);
       //atten = ( float ) HP_XMID * 1.415 - atten;
 
-      //h = sin( x * (M_PI * 2 / HP_XSIZE) * 6 ) * 4;
+      h = sin( x * ( M_PI * 2 ) / HP_XSIZE ) * 30 +
+          sin( y * ( M_PI * 2 ) / HP_YSIZE ) * 30;
+
+      h += sin( x * ( M_PI * 2 ) / HP_XSIZE * 2 ) * 16 +
+          sin( y * ( M_PI * 2 ) / HP_YSIZE * 2 ) * 16;
+
+      h += sin( x * ( M_PI * 2 ) / HP_XSIZE * 4 ) * 8 +
+          sin( y * ( M_PI * 2 ) / HP_YSIZE * 4 ) * 8;
+
+      h += sin( x * ( M_PI * 2 ) / HP_XSIZE * 8 ) * 3 +
+          sin( y * ( M_PI * 2 ) / HP_YSIZE * 8 ) * 3;
+
+
+
+      /*
       h = sin( theta * (M_PI * 2 / HP_XSIZE) * 6) * 1 + 
         sin( theta * (M_PI * 2 / HP_XSIZE) * 4.23 ) * 1.2;
         sin( theta * (M_PI * 2 / HP_XSIZE) * 9.1 ) * 1;
       h += sin( y * (M_PI * 2 / HP_XSIZE) * 5.3) * 2.1 +
         sin( y * (M_PI * 2 / HP_XSIZE) * 4.1) * 3;
         sin( y * (M_PI * 2 / HP_XSIZE) * 11.1) * 1;
+      */
+      //h *= 10;
+      //h *= atten;
 
-      h *= 10;
-      h *= atten;
-
-      if( x > 1 ) {
+      if( x > 0 ) {
         h += 100.0 / (HP_XSIZE - x );
         h += 100.0 / x;
       }
-      if( y > 1 ) {
+      if( y > 0 ) {
         h += 100.0 / (HP_YSIZE - y );
         h += 100.0 / y;
       }
