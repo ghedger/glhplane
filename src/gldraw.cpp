@@ -53,7 +53,7 @@ void specialKeys( int key, int x, int y );
 #define TURN_DAMPER 12
 #define VEL_DAMPER 16
 #define VEL_DEFAULT 0.05
-#define VEL_MAX 0.35
+#define VEL_MAX 0.85
 
 void updatePosition()
 {
@@ -125,13 +125,48 @@ void initHeightPlane()
 {
   int x, y;
   float theta = 0;
+  float atten;
   for( x = 0; x < HP_XSIZE; x++ ) {
     for( y = 0; y < HP_YSIZE; y++ ) {
       double h;
+      // Apply attenuation function over all
+      atten = abs(
+          sqrt(
+            pow( ( float ) x - ( float ) HP_XMID, 2 ) +
+            pow( ( float ) y - ( float ) HP_YMID, 2 )
+          )
+      );
+      if( atten < 1 ) {
+        atten = 1;
+      }
+
+      //atten /= HP_XMID;
+
+      //atten = 0.5 - pow ( 1 / ( 1 + pow(atten, -2 ) ), 25 );
+      atten = 1 - pow ( 1 / ( 1 + pow(atten, -1 ) ), 30);
+      atten -= 0.25;
+
+      if( atten < 0 ) {
+        atten = 0;
+      }
+      //atten = ( float ) (HP_XMID / pow(atten, 2) * atten);
+      //atten = ( float ) HP_XMID * 1.415 - atten;
+      if( HP_XMID == x  ) {
+        printf( "%d %d %2.2f\n", x, y, atten );
+      }
+
       //h = sin( x * (M_PI * 2 / HP_XSIZE) * 6 ) * 4;
-      h = sin( theta * (M_PI * 2 / HP_XSIZE) * 6) * 1 + sin( theta * (M_PI * 2 / HP_XSIZE) * 4.23 ) * 1.2;
-      h += cos( y * (M_PI * 2 / HP_XSIZE) * 5.3) * 2.1 +  cos( y * (M_PI * 2 / HP_XSIZE) * 4.1) * 3;
-      g_heightPlane[ x ][ y ] = h * 1.5;
+      h = sin( theta * (M_PI * 2 / HP_XSIZE) * 6) * 1 + 
+        sin( theta * (M_PI * 2 / HP_XSIZE) * 4.23 ) * 1.2;
+        sin( theta * (M_PI * 2 / HP_XSIZE) * 9.1 ) * 1 +
+        sin( theta * (M_PI * 2 / HP_XSIZE) *19.1 ) * 0.7;
+      h += sin( y * (M_PI * 2 / HP_XSIZE) * 5.3) * 2.1 +
+        sin( y * (M_PI * 2 / HP_XSIZE) * 4.1) * 3;
+        sin( y * (M_PI * 2 / HP_XSIZE) * 11.1) * 1;
+        
+      h *= 5;
+      h *= atten;
+      g_heightPlane[ x ][ y ] = h;
       theta += 0.01;
     }
   }
@@ -240,13 +275,14 @@ float getHeightAt( float fx, float fy )
         //v23 = normalize( v23 );
         //v31 = normalize( v31 );
         h = calcZ( v12, v23, v31, ix, iy );
+#ifdef DEBUG_HP        
         printf( "TL %2.2f  %2.2f  %2.2f  { %2.2f %2.2f %2.2f } { %2.2f %2.2f %2.2f } { %2.2f %2.2f %2.2f } \n",
             zm, h, zm + h,
             v12.x, v12.y, v12.x,
             v23.x, v23.y, v23.z,
             v31.x, v31.y, v31.z
             );
-
+#endif
         h += zm;
       } else {
         // bottom/right
@@ -276,12 +312,14 @@ float getHeightAt( float fx, float fy )
         //v43 = normalize( v43 );
         //v32 = normalize( v32 );
         h = calcZ( v24, v43, v32, ix, iy );
+#ifdef DEBUG_HP        
         printf( "BR %2.2f  %2.2f  %2.2f  { %2.2f %2.2f %2.2f } { %2.2f %2.2f %2.2f } { %2.2f %2.2f %2.2f } \n",
             zm, h, zm + h,
             v24.x, v24.y, v24.x,
             v43.x, v43.y, v43.z,
             v32.x, v32.y, v32.z
             );
+#endif
         h += zm;
       }
     }
