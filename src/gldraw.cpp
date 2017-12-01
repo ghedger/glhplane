@@ -1,8 +1,9 @@
+// Main entry point
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <iostream>
-
 #include <GL/glut.h>
 #include <GL/glu.h>
 #include <glm/glm.hpp>
@@ -10,8 +11,11 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <math.h>
-
 #include <assert.h>
+
+#include "common.h"
+#include "playfield.h"
+
 using namespace std;
 
 float mo[16];
@@ -21,19 +25,9 @@ float g_rotX = 0.0;
 float g_rotY = 1.0;
 float g_rotZ = 0.0;
 
-#define HP_XSIZE 300
-#define HP_YSIZE 300
-#define HP_GRIDSIZE 2.0
-#define HP_XMID (HP_GRIDSIZE * HP_XSIZE / 2)
-#define HP_YMID (HP_GRIDSIZE * HP_YSIZE / 2)
-#define HP_XMID_GRID (HP_XSIZE / 2)
-#define HP_YMID_GRID (HP_YSIZE / 2)
-
-
-float g_heightPlane[ HP_XSIZE ][ HP_YSIZE ];
+Playfield *g_pPlayfield = NULL;
 
 // Global positioning
-
 float g_xpos;
 float g_ypos;
 float g_xyDir;
@@ -123,264 +117,18 @@ void updateVisibility(int state )
   }
 }
 
-// initHeightPlane
-//
-void initHeightPlane()
-{
-  int x, y;
-  float theta = 0;
-  float atten;
-  for( x = 0; x < HP_XSIZE; x++ ) {
-    for( y = 0; y < HP_YSIZE; y++ ) {
-      double h;
-      // Apply attenuation function over all
-      atten = abs(
-          sqrt(
-            pow( ( float ) x - ( float ) HP_XMID_GRID, 2 ) +
-            pow( ( float ) y - ( float ) HP_YMID_GRID, 2 )
-          )
-      );
-      if( atten < 1 ) {
-        atten = 1;
-      }
-
-      //atten /= HP_XMID_GRID;
-
-      //atten = 0.5 - pow ( 1 / ( 1 + pow(atten, -2 ) ), 25 );
-      atten = 1 - pow ( 1 / ( 1 + pow(atten, -1 ) ), 40);
-      atten -= 0.25;
-
-      if( atten < 0 ) {
-        atten = 0;
-      }
-      //atten = ( float ) (HP_XMID / pow(atten, 2) * atten);
-      //atten = ( float ) HP_XMID * 1.415 - atten;
-      if( HP_XMID_GRID == x  ) {
-        printf( "%d %d %2.2f\n", x, y, atten );
-      }
-
-      //h = sin( x * (M_PI * 2 / HP_XSIZE) * 6 ) * 4;
-      h = sin( theta * (M_PI * 2 / HP_XSIZE) * 6) * 1 + 
-        sin( theta * (M_PI * 2 / HP_XSIZE) * 3.23 ) * 1.2;
-        sin( theta * (M_PI * 2 / HP_XSIZE) * 9.1 ) * 1 +
-        sin( theta * (M_PI * 2 / HP_XSIZE) *19.1 ) * 0.3;
-      h += sin( y * (M_PI * 2 / HP_XSIZE) * 5.3) * 2.1 +
-        sin( y * (M_PI * 2 / HP_XSIZE) * 1.1) * 5;
-        sin( y * (M_PI * 2 / HP_XSIZE) * 9.1) * 1;
-        sin( y * (M_PI * 2 / HP_XSIZE) * 13.1) * 0.2;
-
-      h *= 5;
-      h *= atten;
-      g_heightPlane[ x ][ y ] = h;
-      theta += 0.01;
-    }
-  }
-}
-
-// calcZ
-// Use Barycentric coordinate algorithm to derive z from y on heightplane triangle
-// Entry:  p1 vector1
-//        p2 vector2
-//        p3 vector3
-//        x on triangle
-//        y on triangle
-// Exit:  z at { x, y }
-//
-float calcZ(glm::vec3 p1, glm::vec3 p2, glm::vec3 p3, float x, float y)
-{
-  float det = (p2.y - p3.y) * (p1.x - p3.x) + (p3.x - p2.x) * (p1.y - p3.y);
-
-  float l1 = ((p2.y - p3.y) * (x - p3.x) + (p3.x - p2.x) * (y - p3.y)) / det;
-  float l2 = ((p3.y - p1.y) * (x - p3.x) + (p1.x - p3.x) * (y - p3.y)) / det;
-  float l3 = 1.0f - l1 - l2;
-
-
-	float z = l1 * p1.z + l2 * p2.z + l3 * p3.z;
-#ifdef DEBUG_BARYCENTRIC
-  printf("{%2.2f %2.2f %2.2f} {%2.2f %2.2f %2.2f} {%2.2f %2.2f %2.2f} [%2.2f %2.2f %2.2f] %2.2f %2.2f  %2.4f\n", 
-			p1.x, p1.y, p1.z,
-			p2.x, p2.y, p2.z,
-			p3.x, p3.y, p3.z,
-			l1, l2, l3,
-			x, y, z 
-	);
-#endif
-	return z;
-
-  //return l1 * p1.z + l2 * p2.z + l3 * p3.z;
-}
-
-//#define DEBUG_HP
-// getHeightAt
-// Get precise height on height plane at position { x, y }
-// This facilitate smooth movement along the surfiace.
-// (Nasty little function chock full of linear algeraic formulae)
-// Entry:  x position
-//        y position
-// Exit:  z position
-//
-float getHeightAt( float fx, float fy )
-{
-  float h = 0.0;
-  int x = (int) (fx / HP_GRIDSIZE);
-  int y = (int) (fy / HP_GRIDSIZE);
-  if( x >= 0 && x < HP_XSIZE - 1 ) {
-    if( y >= 0 && y < HP_YSIZE - 1 ) {
-      // Find which triangular half of the grid square { fx, fy } is in (top/right or bottom/left)
-      float ix, iy;
-      float ax, ay;
-      float h1, h2, h3;
-      ix = fmod( fx, HP_GRIDSIZE );
-      iy = fmod( fy, HP_GRIDSIZE );
-
-      assert(ix >= 0.0);
-      assert(iy >= 0.0);
-			ax = fx - ix;
-			ay = fy - iy;
-
-
-      // What's the vector, Victor?
-      //
-      // Spatial point convention:
-      //   1   2
-      //   3   4
-      //
-      // Origin:
-      //   1
-      // Vect { 2, 4 } has (2) as the origin.
-      if( ix > ( HP_GRIDSIZE - iy ) ) {
-        //iy = HP_GRIDSIZE - iy;
-        // top/left
-        // mean z
-        float zm = (
-            g_heightPlane[ x ][ y ] +
-            g_heightPlane[ x + 1 ][ y ] +
-            g_heightPlane[ x + 1 ][ y + 1 ] +
-            g_heightPlane[ x ][ y + 1 ]
-            ) / 4;
-#if 0
-        glm::vec3 v12 = {
-          (fx + HP_GRIDSIZE) - fx,
-          fy - fy,
-          g_heightPlane[ x + 1 ][ y ] - g_heightPlane[ x ][ y ]
-        };
-        glm::vec3 v23 = {
-          fx - (fx + HP_GRIDSIZE),
-          (fy + HP_GRIDSIZE) - fy,
-          g_heightPlane[ x ][ y + 1 ] - g_heightPlane[ x + 1 ][ y ]
-        };
-        glm::vec3 v31 = {
-          fx - fx,
-          fy - (fy + HP_GRIDSIZE),
-          g_heightPlane[ x ][ y ] - g_heightPlane[ x ][ y + 1 ]
-        };
-        glm::vec3 v13 = {
-          fx - fx,
-          (fy + HP_GRIDSIZE) - fy,
-          g_heightPlane[ x ][ y + 1 ] - g_heightPlane[ x ][ y ]
-        };
- #endif
-        glm::vec3 v1 = {
-          ax,
-          ay,
-          g_heightPlane[ x ][ y ]
-        };
-        glm::vec3 v2 = {
-          (ax + HP_GRIDSIZE + 0.001),
-          ay,
-          g_heightPlane[ x + 1 ][ y ]
-        };
-        glm::vec3 v3 = {
-          ax,
-          (ay + HP_GRIDSIZE + 0.001 ),
-          g_heightPlane[ x ][ y + 1 ]
-        };
-
-        //v12 = normalize( v12 );
-        //v23 = normalize( v23 );
-        //v31 = normalize( v31 );
-        h = calcZ( v1, v2, v3, fx, fy );
-#ifdef DEBUG_HP        
-        printf( "TL %2.2f  %2.2f  %2.2f  { %2.2f %2.2f %2.2f } { %2.2f %2.2f %2.2f } { %2.2f %2.2f %2.2f } \n",
-            zm, h, zm + h,
-            v1.x, v1.y, v1.z,
-            v2.x, v2.y, v2.z,
-            v3.x, v3.y, v3.z
-            );
-#endif
-      } else {
-        // bottom/right
-        // mean z
-        float zm = (
-            g_heightPlane[ x ][ y ] +
-            g_heightPlane[ x + 1 ][ y ] +
-            g_heightPlane[ x + 1 ][ y + 1 ] +
-            g_heightPlane[ x ][ y + 1 ]
-            ) / 4;
-#if 0            
-        glm::vec3 v24 = {
-          (fx + HP_GRIDSIZE) - (fx + HP_GRIDSIZE),
-          (fy + HP_GRIDSIZE) - fy,
-          g_heightPlane[ x + 1 ][ y + 1 ] - g_heightPlane[ x + 1 ][ y ]
-        };
-        glm::vec3 v43 = {
-          fx - (fx + HP_GRIDSIZE),
-          (fy + HP_GRIDSIZE) - (fy + HP_GRIDSIZE),
-          g_heightPlane[ x ][ y + 1 ] - g_heightPlane[ x + 1 ][ y + 1 ]
-        };
-        glm::vec3 v32 = {
-          (fx + HP_GRIDSIZE) - fx,
-          fy - (fy + HP_GRIDSIZE),
-          g_heightPlane[ x + 1 ][ y ] - g_heightPlane[ x ][ y + 1 ]
-        };
-        glm::vec3 v23 = {
-          fx - (fx + HP_GRIDSIZE),
-          (fy + HP_GRIDSIZE) - fy,
-          g_heightPlane[ x ][ y + 1 ] - g_heightPlane[ x + 1 ][ y ]
-        };
- #endif
-        glm::vec3 v2 = {
-          (ax + HP_GRIDSIZE + 0.001),
-          ay,
-          g_heightPlane[ x + 1 ][ y]
-        };
-        glm::vec3 v4 = {
-          (ax + HP_GRIDSIZE  + 0.001 ),
-          (ay + HP_GRIDSIZE + 0.001 ),
-          g_heightPlane[ x + 1 ][ y + 1 ]
-        };
-        glm::vec3 v3 = {
-          ax,
-          (ay + HP_GRIDSIZE),
-          g_heightPlane[ x ][ y + 1 ]
-        };
-
-        //v24 = normalize( v24 );
-        //v43 = normalize( v43 );
-        //v32 = normalize( v32 );
-        h = calcZ( v2, v3, v4, fx, fy );
-#ifdef DEBUG_HP        
-        printf( "BR %2.2f  %2.2f  %2.2f  { %2.2f %2.2f %2.2f } { %2.2f %2.2f %2.2f } { %2.2f %2.2f %2.2f } \n",
-            zm, h, zm + h,
-            v2.x, v2.y, v2.z,
-            v3.x, v3.y, v3.z,
-            v4.x, v4.y, v4.z
-            );
-#endif
-      }
-    }
-  }
-  return h;
-}
-
 void init()
 {
+	// Init global positioning
   g_xpos = 3.0;
   g_ypos = 3.0;
   g_xyDir = M_PI + M_PI / 4;
   g_xyDirTar = g_xyDir;
   g_vel = 0.0;
   g_velTar = 0.0;
+
+	// Init playfield
+	g_pPlayfield = new Playfield();
 }
 
 int main( int argc, char **argv )
@@ -388,7 +136,7 @@ int main( int argc, char **argv )
 
   init();
 
-  initHeightPlane();
+  // initHeightPlane();
 
   //
   glutInit(&argc,argv);
@@ -415,18 +163,17 @@ int main( int argc, char **argv )
 //
 void setFog()
 {
-  GLuint filter;                                      // Which Filter To Use
   GLuint fogMode[]= { GL_EXP, GL_EXP2, GL_LINEAR };   // Storage For Three Types Of Fog
   GLuint fogfilter= 0;                                // Which Fog To Use
   GLfloat fogColor[4]= {0.2f, 0.4f, 0.55f, 1.0f};     // Fog Color
 
-  glFogi(GL_FOG_MODE, fogMode[fogfilter]);  // Fog Mode
-  glFogfv(GL_FOG_COLOR, fogColor);          // Set Fog Color
-  glFogf(GL_FOG_DENSITY, 0.0125f);          // How Dense Will The Fog Be
-  glHint(GL_FOG_HINT, GL_NICEST);           // Fog Hint Value
-  glFogf(GL_FOG_START, 0.1f);               // Fog Start Depth
-  glFogf(GL_FOG_END, 300.0f);               // Fog End Depth
-  glEnable(GL_FOG);                         // Enables GL_FOG
+  glFogi(GL_FOG_MODE, fogMode[fogfilter]);
+  glFogfv(GL_FOG_COLOR, fogColor);
+  glFogf(GL_FOG_DENSITY, 0.0125f);
+  glHint(GL_FOG_HINT, GL_NICEST);
+  glFogf(GL_FOG_START, 0.1f);
+  glFogf(GL_FOG_END, 300.0f);
+  glEnable(GL_FOG);
 }
 
 // Set up camera
@@ -441,10 +188,10 @@ void setCamera()
   glLoadIdentity();
   gluLookAt( g_xpos,
       g_ypos,
-      getHeightAt( g_xpos, g_ypos ) + 2,
+      g_pPlayfield->getHeightAt( g_xpos, g_ypos ) + 2,
       g_xpos - sin(g_xyDir),
       g_ypos - cos(g_xyDir),
-      getHeightAt( g_xpos, g_ypos ) + 2,
+      g_pPlayfield->getHeightAt( g_xpos, g_ypos ) + 2,
       0,
       0,
       3 );
@@ -456,68 +203,6 @@ GLfloat lightPos[] ={100.0, 150.0, -10000, 0.0};
 GLfloat ambientLight[] = {0.0f, 0.3f, 0.0f, 1.0f};
 GLfloat diffuseLight[] = {0.8f, 0.8f, 0.8f, 1.0f};
 GLfloat specularLight[] = {0.9f, 0.9f, 0.9f, 1.0f};
-GLfloat materialEmission[] = {1.0f, 1.0f, 1.0f, 1.0f};
-GLfloat materialAmbient[] = {0.4f, 0.5f, 0.1f, 1.0f};
-GLfloat materialSpecular[] = {0.41, 0.52, 0.11, 0.2};
-
-GLfloat material2Emission[] = {0.0f, 0.0f, 0.0f, 1.0f};
-GLfloat material2Ambient[] = {0.4f, 0.5f, 0.1f, 1.0f};
-
-
-
-// drawHeightPlaneLines
-//
-void drawHeightPlaneLines()
-{
-  int x, y;
-  for( x = 0; x < HP_XSIZE - 1; x++ ) {
-    for( y = 0; y < HP_YSIZE - 1; y++ ) {
-      glVertex3f( (double) x * HP_GRIDSIZE, (double) y * HP_GRIDSIZE, g_heightPlane[ x ][ y ] + 0.01 );
-      glVertex3f( (double) ( x + 1 ) * HP_GRIDSIZE , (double) y * HP_GRIDSIZE, g_heightPlane[ x + 1 ][ y ] + 0.01 );
-      glVertex3f( (double) ( x + 1) * HP_GRIDSIZE , (double) ( y + 1 ) * HP_GRIDSIZE, g_heightPlane[ x + 1 ][ y + 1 ] + 0.01 );
-      glVertex3f( (double) x * HP_GRIDSIZE, (double) ( y + 1 ) * HP_GRIDSIZE, g_heightPlane[ x ][ y + 1 ] + 0.01 );
-    }
-  }
-}
-
-static bool g_squareWhite = 0;
-// drawHeightPlane
-//
-void drawHeightPlane()
-{
-  int x, y;
-
-	g_squareWhite = true;
-
-  for( x = 0; x < HP_XSIZE - 1; x++ ) {
-    for( y = 0; y < HP_YSIZE - 1; y++ ) {
-			if( !g_squareWhite ) {
-				glColor3f(0.0, 0.0, 0.0 );
-			}  else {
-				glColor3f(0.9, 0.9, 0.9 );
-			}
-
-			g_squareWhite = !g_squareWhite;
-
-      glVertex3f( (double) x * HP_GRIDSIZE, (double) y * HP_GRIDSIZE, g_heightPlane[ x ][ y ] );
-      glNormal3f( (double) x * HP_GRIDSIZE, (double) y * HP_GRIDSIZE, g_heightPlane[ x ][ y ] );
-      glVertex3f( (double) ( x + 1 ) * HP_GRIDSIZE , (double) y * HP_GRIDSIZE, g_heightPlane[ x + 1 ][ y ] );
-      glNormal3f( (double) ( x + 1 ) * HP_GRIDSIZE , (double) y * HP_GRIDSIZE, g_heightPlane[ x + 1 ][ y ] );
-      glVertex3f( (double) x * HP_GRIDSIZE, (double) ( y + 1) * HP_GRIDSIZE, g_heightPlane[ x ][ y + 1 ] );
-      glNormal3f( (double) x * HP_GRIDSIZE, (double) ( y + 1) * HP_GRIDSIZE, g_heightPlane[ x ][ y + 1 ] );
-
-      glVertex3f( (double) ( x + 1 ) * HP_GRIDSIZE , (double) y * HP_GRIDSIZE, g_heightPlane[ x + 1 ][ y ] );
-      glNormal3f( (double) ( x + 1 ) * HP_GRIDSIZE , (double) y * HP_GRIDSIZE, g_heightPlane[ x + 1 ][ y ] );
-      glVertex3f( (double) ( x + 1) * HP_GRIDSIZE , (double) ( y + 1 ) * HP_GRIDSIZE, g_heightPlane[ x + 1 ][ y + 1 ] );
-      glNormal3f( (double) ( x + 1) * HP_GRIDSIZE , (double) ( y + 1 ) * HP_GRIDSIZE, g_heightPlane[ x + 1 ][ y + 1 ] );
-      glVertex3f( (double) x * HP_GRIDSIZE, (double) ( y + 1 ) * HP_GRIDSIZE, g_heightPlane[ x ][ y + 1 ] );
-      glNormal3f( (double) x * HP_GRIDSIZE, (double) ( y + 1 ) * HP_GRIDSIZE, g_heightPlane[ x ][ y + 1 ] );
-    }
-  }
-}
-
-
-
 
 
 // Set up light
@@ -547,34 +232,9 @@ void setLight()
     }
   }
 #endif
-  //glTranslatef( HP_XMID, HP_YMID, 100.0 );               // Translate rotation center from origin
-  //glUniform3f(GL_LIGHT0, HP_XMID, HP_YMID, 100.0);
+
   // Light position
   glLightfv(GL_LIGHT0, GL_POSITION, lightPos);
-
-  //glPopMatrix();
-}
-
-// Set up material
-//
-void setPlaneMaterial()
-{
-  glColor3f(1.0, 1.0, 1.0 );
-  glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, materialAmbient);
-  //glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, materialSpecular);
-  glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, materialEmission);
-  //glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS,100.8); //The shininess parameter
-}
-
-// Set up material
-//
-void setPlaneMaterial2()
-{
-  glColor3f(0.0, 0.0, 0.0 );
-  glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, material2Ambient);
-  //glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, materialSpecular);
-  glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, material2Emission);
-  //glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS,100.8); //The shininess parameter
 }
 
 
@@ -596,7 +256,6 @@ void display()
   glTranslatef( -HP_XMID, -HP_YMID, 0.0 );            // Translate rotation center to origin
 
   //  glMultMatrixf(mo);
-
   //  glGetFloatv( GL_MODELVIEW_MATRIX, mo );
 
   glPopMatrix();
@@ -615,32 +274,12 @@ void display()
 
   // Clear to sky color / draw sky
   glClearColor( 0.2, 0.4, 0.55, 1.0 );
-
   setFog();
 
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
-
   setCamera();
-  // Clear the rendering window
-
-
-  glPolygonMode( GL_FRONT, GL_FILL);
-  glBegin( GL_TRIANGLES);
-  setPlaneMaterial2();
-  drawHeightPlane();
-  glEnd();
-  glFlush();
-
-  //glClear(GL_DEPTH_BUFFER_BIT);
-  glPolygonMode( GL_FRONT_AND_BACK, GL_LINE);
-  glBegin( GL_QUADS);
-  setPlaneMaterial();
-  drawHeightPlaneLines();
-  glEnd();
-
-
-
+	g_pPlayfield->draw();
 
   // Flush the pipeline, swap the buffers
   glFlush();
