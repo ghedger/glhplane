@@ -40,7 +40,6 @@ bool HeightPlane::initHeightPlane()
     for( y = 0; y < HP_YSIZE; y++ ) {
       double h;
       // Apply attenuation function over all
-      // Apply attenuation function over all
       attenPrev = atten;
       atten = abs(
           sqrt(
@@ -79,12 +78,15 @@ bool HeightPlane::initHeightPlane()
       h *= 10;
       h *= atten;
 
-      if( x > HP_XSIZE - 10 ) {
-        h = 100.0 / (HP_XSIZE - x );
+      if( x > 1 ) {
+        h += 100.0 / (HP_XSIZE - x );
+        h += 100.0 / x;
       }
-      if( y > HP_XSIZE - 10 ) {
-        h = 100.0 / (HP_YSIZE - y );
+      if( y > 1 ) {
+        h += 100.0 / (HP_YSIZE - y );
+        h += 100.0 / y;
       }
+
 
       m_heightPlane[ x ][ y ] = h;
       theta += 0.011;
@@ -116,8 +118,8 @@ float HeightPlane::getHeightAt( const float fx, const float fy )
       ix = fmod( fx, HP_GRIDSIZE );
       iy = fmod( fy, HP_GRIDSIZE );
 
-      assert(ix >= 0.0 && ix < HP_GRIDSIZE);
-      assert(iy >= 0.0 && iy < HP_GRIDSIZE);
+      //assert(ix >= 0.0 && ix < HP_GRIDSIZE);
+      //assert(iy >= 0.0 && iy < HP_GRIDSIZE);
 
 			ax = fx - ix;
 			ay = fy - iy;

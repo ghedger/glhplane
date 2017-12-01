@@ -67,7 +67,6 @@ void updatePosition()
   g_xpos += sin( g_xyDir ) * g_vel;
   g_ypos += cos( g_xyDir ) * g_vel;
 #endif
-	g_zpos = g_pPlayfield->getHeightAt( g_xpos, g_ypos );
 
   if( abs( g_xyDir - g_xyDirTar ) > M_PI )
   {
@@ -84,6 +83,35 @@ void updatePosition()
       }
     }
   }
+
+	// Clamp position
+	if( g_xpos > ( HP_XSIZE - 2 ) * HP_GRIDSIZE ) {
+		if( g_xposPrev < g_xpos ) {
+			g_xpos = HP_XSIZE * HP_GRIDSIZE - 0.00001;
+		}
+	}
+	if( g_xpos < 0 ) {
+		if( g_xposPrev > g_xpos ) {
+			g_xpos = 0;
+		}
+	}
+	if( g_ypos > ( HP_YSIZE - 2 ) * HP_GRIDSIZE ) {
+		if( g_yposPrev < g_ypos ) {
+			g_ypos = HP_XSIZE * HP_GRIDSIZE - 0.00001;
+		}
+	}
+	if( g_ypos < 0 ) {
+		if( g_yposPrev > g_ypos ) {
+			g_ypos = 0;
+		}
+	}
+
+
+	// Only get the z position AFTER all the x/y position update
+	// including clamping is completed.
+	g_zpos = g_pPlayfield->getHeightAt( g_xpos, g_ypos );
+
+	// Update direction
 
   g_xyDir += ( g_xyDirTar - g_xyDir ) / TURN_DAMPER;
 
@@ -128,8 +156,8 @@ void updateVisibility( int state )
 void init()
 {
 	// Init global positioning
-  g_xpos = 3.0;
-  g_ypos = 3.0;
+  g_xpos = 30.0;
+  g_ypos = 30.0;
   g_zpos = 0.0;
   g_zposLookatTar = 0.0;
   g_xyDir = M_PI + M_PI / 4;
@@ -197,7 +225,9 @@ void setCamera()
   glMatrixMode( GL_MODELVIEW );
   glLoadIdentity();
 
-	g_zposLookatTar += ( ( g_zpos - g_zposPrev ) - g_zposLookatTar ) / 4;
+	float zposLookatTarDelta = ( ( g_zpos - g_zposPrev ) - g_zposLookatTar ) / 4;
+
+	g_zposLookatTar += zposLookatTarDelta;
 
   gluLookAt(
 			g_xpos,
