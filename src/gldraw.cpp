@@ -11,6 +11,7 @@
 #include <pthread.h>
 #include <math.h>
 
+#include <assert.h>
 using namespace std;
 
 float mo[16];
@@ -22,9 +23,12 @@ float g_rotZ = 0.0;
 
 #define HP_XSIZE 300
 #define HP_YSIZE 300
-#define HP_GRIDSIZE 1.0
+#define HP_GRIDSIZE 2.0
 #define HP_XMID (HP_GRIDSIZE * HP_XSIZE / 2)
 #define HP_YMID (HP_GRIDSIZE * HP_YSIZE / 2)
+#define HP_XMID_GRID (HP_XSIZE / 2)
+#define HP_YMID_GRID (HP_YSIZE / 2)
+
 
 float g_heightPlane[ HP_XSIZE ][ HP_YSIZE ];
 
@@ -132,15 +136,15 @@ void initHeightPlane()
       // Apply attenuation function over all
       atten = abs(
           sqrt(
-            pow( ( float ) x - ( float ) HP_XMID, 2 ) +
-            pow( ( float ) y - ( float ) HP_YMID, 2 )
+            pow( ( float ) x - ( float ) HP_XMID_GRID, 2 ) +
+            pow( ( float ) y - ( float ) HP_YMID_GRID, 2 )
           )
       );
       if( atten < 1 ) {
         atten = 1;
       }
 
-      //atten /= HP_XMID;
+      //atten /= HP_XMID_GRID;
 
       //atten = 0.5 - pow ( 1 / ( 1 + pow(atten, -2 ) ), 25 );
       atten = 1 - pow ( 1 / ( 1 + pow(atten, -1 ) ), 40);
@@ -151,7 +155,7 @@ void initHeightPlane()
       }
       //atten = ( float ) (HP_XMID / pow(atten, 2) * atten);
       //atten = ( float ) HP_XMID * 1.415 - atten;
-      if( HP_XMID == x  ) {
+      if( HP_XMID_GRID == x  ) {
         printf( "%d %d %2.2f\n", x, y, atten );
       }
 
@@ -164,7 +168,7 @@ void initHeightPlane()
         sin( y * (M_PI * 2 / HP_XSIZE) * 1.1) * 5;
         sin( y * (M_PI * 2 / HP_XSIZE) * 9.1) * 1;
         sin( y * (M_PI * 2 / HP_XSIZE) * 13.1) * 0.2;
-        
+
       h *= 5;
       h *= atten;
       g_heightPlane[ x ][ y ] = h;
@@ -190,9 +194,23 @@ float calcZ(glm::vec3 p1, glm::vec3 p2, glm::vec3 p3, float x, float y)
   float l2 = ((p3.y - p1.y) * (x - p3.x) + (p1.x - p3.x) * (y - p3.y)) / det;
   float l3 = 1.0f - l1 - l2;
 
-  return l1 * p1.z + l2 * p2.z + l3 * p3.z;
+
+	float z = l1 * p1.z + l2 * p2.z + l3 * p3.z;
+#ifdef DEBUG_BARYCENTRIC
+  printf("{%2.2f %2.2f %2.2f} {%2.2f %2.2f %2.2f} {%2.2f %2.2f %2.2f} [%2.2f %2.2f %2.2f] %2.2f %2.2f  %2.4f\n", 
+			p1.x, p1.y, p1.z,
+			p2.x, p2.y, p2.z,
+			p3.x, p3.y, p3.z,
+			l1, l2, l3,
+			x, y, z 
+	);
+#endif
+	return z;
+
+  //return l1 * p1.z + l2 * p2.z + l3 * p3.z;
 }
 
+//#define DEBUG_HP
 // getHeightAt
 // Get precise height on height plane at position { x, y }
 // This facilitate smooth movement along the surfiace.
@@ -210,9 +228,16 @@ float getHeightAt( float fx, float fy )
     if( y >= 0 && y < HP_YSIZE - 1 ) {
       // Find which triangular half of the grid square { fx, fy } is in (top/right or bottom/left)
       float ix, iy;
+      float ax, ay;
       float h1, h2, h3;
       ix = fmod( fx, HP_GRIDSIZE );
       iy = fmod( fy, HP_GRIDSIZE );
+
+      assert(ix >= 0.0);
+      assert(iy >= 0.0);
+			ax = fx - ix;
+			ay = fy - iy;
+
 
       // What's the vector, Victor?
       //
@@ -233,6 +258,7 @@ float getHeightAt( float fx, float fy )
             g_heightPlane[ x + 1 ][ y + 1 ] +
             g_heightPlane[ x ][ y + 1 ]
             ) / 4;
+#if 0
         glm::vec3 v12 = {
           (fx + HP_GRIDSIZE) - fx,
           fy - fy,
@@ -248,19 +274,40 @@ float getHeightAt( float fx, float fy )
           fy - (fy + HP_GRIDSIZE),
           g_heightPlane[ x ][ y ] - g_heightPlane[ x ][ y + 1 ]
         };
+        glm::vec3 v13 = {
+          fx - fx,
+          (fy + HP_GRIDSIZE) - fy,
+          g_heightPlane[ x ][ y + 1 ] - g_heightPlane[ x ][ y ]
+        };
+ #endif
+        glm::vec3 v1 = {
+          ax,
+          ay,
+          g_heightPlane[ x ][ y ]
+        };
+        glm::vec3 v2 = {
+          (ax + HP_GRIDSIZE + 0.001),
+          ay,
+          g_heightPlane[ x + 1 ][ y ]
+        };
+        glm::vec3 v3 = {
+          ax,
+          (ay + HP_GRIDSIZE + 0.001 ),
+          g_heightPlane[ x ][ y + 1 ]
+        };
+
         //v12 = normalize( v12 );
         //v23 = normalize( v23 );
         //v31 = normalize( v31 );
-        h = calcZ( v12, v23, v31, ix, iy );
+        h = calcZ( v1, v2, v3, fx, fy );
 #ifdef DEBUG_HP        
         printf( "TL %2.2f  %2.2f  %2.2f  { %2.2f %2.2f %2.2f } { %2.2f %2.2f %2.2f } { %2.2f %2.2f %2.2f } \n",
             zm, h, zm + h,
-            v12.x, v12.y, v12.x,
-            v23.x, v23.y, v23.z,
-            v31.x, v31.y, v31.z
+            v1.x, v1.y, v1.z,
+            v2.x, v2.y, v2.z,
+            v3.x, v3.y, v3.z
             );
 #endif
-        h += zm;
       } else {
         // bottom/right
         // mean z
@@ -270,6 +317,7 @@ float getHeightAt( float fx, float fy )
             g_heightPlane[ x + 1 ][ y + 1 ] +
             g_heightPlane[ x ][ y + 1 ]
             ) / 4;
+#if 0            
         glm::vec3 v24 = {
           (fx + HP_GRIDSIZE) - (fx + HP_GRIDSIZE),
           (fy + HP_GRIDSIZE) - fy,
@@ -285,19 +333,40 @@ float getHeightAt( float fx, float fy )
           fy - (fy + HP_GRIDSIZE),
           g_heightPlane[ x + 1 ][ y ] - g_heightPlane[ x ][ y + 1 ]
         };
+        glm::vec3 v23 = {
+          fx - (fx + HP_GRIDSIZE),
+          (fy + HP_GRIDSIZE) - fy,
+          g_heightPlane[ x ][ y + 1 ] - g_heightPlane[ x + 1 ][ y ]
+        };
+ #endif
+        glm::vec3 v2 = {
+          (ax + HP_GRIDSIZE + 0.001),
+          ay,
+          g_heightPlane[ x + 1 ][ y]
+        };
+        glm::vec3 v4 = {
+          (ax + HP_GRIDSIZE  + 0.001 ),
+          (ay + HP_GRIDSIZE + 0.001 ),
+          g_heightPlane[ x + 1 ][ y + 1 ]
+        };
+        glm::vec3 v3 = {
+          ax,
+          (ay + HP_GRIDSIZE),
+          g_heightPlane[ x ][ y + 1 ]
+        };
+
         //v24 = normalize( v24 );
         //v43 = normalize( v43 );
         //v32 = normalize( v32 );
-        h = calcZ( v24, v43, v32, ix, iy );
+        h = calcZ( v2, v3, v4, fx, fy );
 #ifdef DEBUG_HP        
         printf( "BR %2.2f  %2.2f  %2.2f  { %2.2f %2.2f %2.2f } { %2.2f %2.2f %2.2f } { %2.2f %2.2f %2.2f } \n",
             zm, h, zm + h,
-            v24.x, v24.y, v24.x,
-            v43.x, v43.y, v43.z,
-            v32.x, v32.y, v32.z
+            v2.x, v2.y, v2.z,
+            v3.x, v3.y, v3.z,
+            v4.x, v4.y, v4.z
             );
 #endif
-        h += zm;
       }
     }
   }
@@ -349,11 +418,11 @@ void setFog()
   GLuint filter;                                      // Which Filter To Use
   GLuint fogMode[]= { GL_EXP, GL_EXP2, GL_LINEAR };   // Storage For Three Types Of Fog
   GLuint fogfilter= 0;                                // Which Fog To Use
-  GLfloat fogColor[4]= {0.0f, 0.0f, 0.0f, 1.0f};     // Fog Color
+  GLfloat fogColor[4]= {0.2f, 0.4f, 0.55f, 1.0f};     // Fog Color
 
   glFogi(GL_FOG_MODE, fogMode[fogfilter]);  // Fog Mode
   glFogfv(GL_FOG_COLOR, fogColor);          // Set Fog Color
-  glFogf(GL_FOG_DENSITY, 0.025f);          // How Dense Will The Fog Be
+  glFogf(GL_FOG_DENSITY, 0.0125f);          // How Dense Will The Fog Be
   glHint(GL_FOG_HINT, GL_NICEST);           // Fog Hint Value
   glFogf(GL_FOG_START, 0.1f);               // Fog Start Depth
   glFogf(GL_FOG_END, 300.0f);               // Fog End Depth
@@ -403,22 +472,33 @@ void drawHeightPlaneLines()
   int x, y;
   for( x = 0; x < HP_XSIZE - 1; x++ ) {
     for( y = 0; y < HP_YSIZE - 1; y++ ) {
-      glVertex3f( (double) x * HP_GRIDSIZE, (double) y * HP_GRIDSIZE, g_heightPlane[ x ][ y ] + 0.02 );
-      glVertex3f( (double) ( x + 1 ) * HP_GRIDSIZE , (double) y * HP_GRIDSIZE, g_heightPlane[ x + 1 ][ y ] + 0.02 );
-      glVertex3f( (double) ( x + 1) * HP_GRIDSIZE , (double) ( y + 1 ) * HP_GRIDSIZE, g_heightPlane[ x + 1 ][ y + 1 ] + 0.02 );
-      glVertex3f( (double) x * HP_GRIDSIZE, (double) ( y + 1 ) * HP_GRIDSIZE, g_heightPlane[ x ][ y + 1 ] + 0.02 );
+      glVertex3f( (double) x * HP_GRIDSIZE, (double) y * HP_GRIDSIZE, g_heightPlane[ x ][ y ] + 0.01 );
+      glVertex3f( (double) ( x + 1 ) * HP_GRIDSIZE , (double) y * HP_GRIDSIZE, g_heightPlane[ x + 1 ][ y ] + 0.01 );
+      glVertex3f( (double) ( x + 1) * HP_GRIDSIZE , (double) ( y + 1 ) * HP_GRIDSIZE, g_heightPlane[ x + 1 ][ y + 1 ] + 0.01 );
+      glVertex3f( (double) x * HP_GRIDSIZE, (double) ( y + 1 ) * HP_GRIDSIZE, g_heightPlane[ x ][ y + 1 ] + 0.01 );
     }
   }
 }
 
-
+static bool g_squareWhite = 0;
 // drawHeightPlane
 //
 void drawHeightPlane()
 {
   int x, y;
+
+	g_squareWhite = true;
+
   for( x = 0; x < HP_XSIZE - 1; x++ ) {
     for( y = 0; y < HP_YSIZE - 1; y++ ) {
+			if( !g_squareWhite ) {
+				glColor3f(0.0, 0.0, 0.0 );
+			}  else {
+				glColor3f(0.9, 0.9, 0.9 );
+			}
+
+			g_squareWhite = !g_squareWhite;
+
       glVertex3f( (double) x * HP_GRIDSIZE, (double) y * HP_GRIDSIZE, g_heightPlane[ x ][ y ] );
       glNormal3f( (double) x * HP_GRIDSIZE, (double) y * HP_GRIDSIZE, g_heightPlane[ x ][ y ] );
       glVertex3f( (double) ( x + 1 ) * HP_GRIDSIZE , (double) y * HP_GRIDSIZE, g_heightPlane[ x + 1 ][ y ] );
@@ -534,7 +614,7 @@ void display()
   glEnable(GL_COLOR_MATERIAL);
 
   // Clear to sky color / draw sky
-  glClearColor( 0.0, 0.0, 0.0, 1.0 );
+  glClearColor( 0.2, 0.4, 0.55, 1.0 );
 
   setFog();
 
