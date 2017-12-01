@@ -30,6 +30,13 @@ Playfield *g_pPlayfield = NULL;
 // Global positioning
 float g_xpos;
 float g_ypos;
+float g_zpos;
+float g_xposPrev;
+float g_yposPrev;
+float g_zposPrev;
+
+float g_zposLookatTar;
+
 float g_xyDir;
 float g_xyDirTar;
 float g_vel;
@@ -48,19 +55,19 @@ void display();
 void keyboard( unsigned char key, int x, int y );
 void specialKeys( int key, int x, int y );
 
-#define TURN_DAMPER 12
-#define VEL_DAMPER 16
-#define VEL_DEFAULT 0.05
-#define VEL_MAX 0.85
-
 void updatePosition()
 {
   g_vel += ( g_velTar - g_vel ) / VEL_DAMPER;
+
+	g_xposPrev = g_xpos;
+	g_yposPrev = g_ypos;
+	g_zposPrev = g_zpos;
 
 #ifndef DEBUG_STEPPOS
   g_xpos += sin( g_xyDir ) * g_vel;
   g_ypos += cos( g_xyDir ) * g_vel;
 #endif
+	g_zpos = g_pPlayfield->getHeightAt( g_xpos, g_ypos );
 
   if( abs( g_xyDir - g_xyDirTar ) > M_PI )
   {
@@ -101,11 +108,12 @@ void updatePosition()
 //
 void update( int val )
 {
-  updatePosition();
 
   usleep( 16666 );
+  updatePosition();
   //glutSetWindow( g_window );
   glutPostRedisplay();   // Trigger an automatic redraw for animation
+
   glutTimerFunc( val, update, val );
 }
 
@@ -122,6 +130,8 @@ void init()
 	// Init global positioning
   g_xpos = 3.0;
   g_ypos = 3.0;
+  g_zpos = 0.0;
+  g_zposLookatTar = 0.0;
   g_xyDir = M_PI + M_PI / 4;
   g_xyDirTar = g_xyDir;
   g_vel = 0.0;
@@ -186,15 +196,20 @@ void setCamera()
   gluPerspective( 45, double( viewport[2])/viewport[3], 0.01, 300 );
   glMatrixMode( GL_MODELVIEW );
   glLoadIdentity();
-  gluLookAt( g_xpos,
+
+	g_zposLookatTar += ( ( g_zpos - g_zposPrev ) - g_zposLookatTar ) / 4;
+
+  gluLookAt(
+			g_xpos,
       g_ypos,
-      g_pPlayfield->getHeightAt( g_xpos, g_ypos ) + 2,
+      g_zpos + 2.0 - g_zposLookatTar,
       g_xpos - sin( g_xyDir ),
       g_ypos - cos( g_xyDir ),
-      g_pPlayfield->getHeightAt( g_xpos, g_ypos ) + 2,
+      g_zpos + 2.0,
       0,
       0,
-      3 );
+      3
+	);
   glMultMatrixf( mo );
 }
 
@@ -333,6 +348,14 @@ void keyboard( unsigned char key, int x, int y )
       initGlobalMatrix();
       updateGlobalMatrix( 0.0, 1,0,0 );
       break;
+
+    case 'c':
+			g_pPlayfield->setParam( 0, 0 );
+			break;
+    case 'g':
+			g_pPlayfield->setParam( 0, 1 );
+			break;
+
     case '1':
       updateGlobalMatrix( -10.0, 1,0,0 );
       break;

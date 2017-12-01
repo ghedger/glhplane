@@ -12,8 +12,14 @@
 #include <unistd.h>
 #include <math.h>
 
+#include <memory.h>
+
 HeightPlane::HeightPlane()
 {
+  m_param[0] = 0;
+  m_param[1] = 0;
+  m_param[2] = 0;
+  m_param[3] = 0;
 }
 
 HeightPlane::~HeightPlane()
@@ -24,46 +30,64 @@ HeightPlane::~HeightPlane()
 //
 bool HeightPlane::initHeightPlane()
 {
+
   bool bRet = true;
   int x, y;
-  float theta = 0;
-  float atten;
+  double theta = 0;
+  double atten = 0;
+  double attenPrev;
   for( x = 0; x < HP_XSIZE; x++ ) {
     for( y = 0; y < HP_YSIZE; y++ ) {
       double h;
       // Apply attenuation function over all
+      // Apply attenuation function over all
+      attenPrev = atten;
       atten = abs(
           sqrt(
             pow( ( float ) x - ( float ) HP_XMID_GRID, 2 ) +
             pow( ( float ) y - ( float ) HP_YMID_GRID, 2 )
-            )
-          );
+          )
+      );
       if( atten < 1 ) {
         atten = 1;
       }
 
+      //atten /= HP_XMID;
+
       //atten = 0.5 - pow ( 1 / ( 1 + pow(atten, -2 ) ), 25 );
-      atten = 1 - pow ( 1 / ( 1 + pow(atten, -1 ) ), 40);
+      atten = 1 - pow ( 1 / ( 1 + pow(atten, -1 ) ), 30);
       atten -= 0.25;
 
       if( atten < 0 ) {
         atten = 0;
       }
 
-      //h = sin( x * (M_PI * 2 / HP_XSIZE) * 6 ) * 4;
-      h = sin( theta * (M_PI * 2 / HP_XSIZE) * 6) * 1 +
-        sin( theta * (M_PI * 2 / HP_XSIZE) * 3.23 ) * 1.2 +
-        sin( theta * (M_PI * 2 / HP_XSIZE) * 9.1 ) * 1 +
-        sin( theta * (M_PI * 2 / HP_XSIZE) *19.1 ) * 0.3;
-      h += sin( y * (M_PI * 2 / HP_XSIZE) * 5.3) * 2.1 +
-        sin( y * (M_PI * 2 / HP_XSIZE) * 1.1) * 5 +
-        sin( y * (M_PI * 2 / HP_XSIZE) * 9.1) * 1 +
-        sin( y * (M_PI * 2 / HP_XSIZE) * 13.1) * 0.2;
+      // Simple smoothing function
+      atten = (atten + attenPrev) / 2;
 
-      h *= 5;
+      //atten = ( float ) (HP_XMID / pow(atten, 2) * atten);
+      //atten = ( float ) HP_XMID * 1.415 - atten;
+
+      //h = sin( x * (M_PI * 2 / HP_XSIZE) * 6 ) * 4;
+      h = sin( theta * (M_PI * 2 / HP_XSIZE) * 6) * 1 + 
+        sin( theta * (M_PI * 2 / HP_XSIZE) * 4.23 ) * 1.2;
+        sin( theta * (M_PI * 2 / HP_XSIZE) * 9.1 ) * 1;
+      h += sin( y * (M_PI * 2 / HP_XSIZE) * 5.3) * 2.1 +
+        sin( y * (M_PI * 2 / HP_XSIZE) * 4.1) * 3;
+        sin( y * (M_PI * 2 / HP_XSIZE) * 11.1) * 1;
+
+      h *= 10;
       h *= atten;
+
+      if( x > HP_XSIZE - 10 ) {
+        h = 100.0 / (HP_XSIZE - x );
+      }
+      if( y > HP_XSIZE - 10 ) {
+        h = 100.0 / (HP_YSIZE - y );
+      }
+
       m_heightPlane[ x ][ y ] = h;
-      theta += 0.01;
+      theta += 0.011;
     }
   }
   return bRet;
@@ -92,8 +116,9 @@ float HeightPlane::getHeightAt( const float fx, const float fy )
       ix = fmod( fx, HP_GRIDSIZE );
       iy = fmod( fy, HP_GRIDSIZE );
 
-      assert(ix >= 0.0);
-      assert(iy >= 0.0);
+      assert(ix >= 0.0 && ix < HP_GRIDSIZE);
+      assert(iy >= 0.0 && iy < HP_GRIDSIZE);
+
 			ax = fx - ix;
 			ay = fy - iy;
 
@@ -116,27 +141,26 @@ float HeightPlane::getHeightAt( const float fx, const float fy )
           m_heightPlane[ x ][ y ]
         };
         glm::vec3 v2 = {
-          (ax + HP_GRIDSIZE + 0.001),
+          ( ax + HP_GRIDSIZE ),
           ay,
           m_heightPlane[ x + 1 ][ y ]
         };
         glm::vec3 v3 = {
           ax,
-          (ay + HP_GRIDSIZE + 0.001 ),
+          ( ay + HP_GRIDSIZE ),
           m_heightPlane[ x ][ y + 1 ]
         };
-
         h = calcZ( v1, v2, v3, fx, fy );
       } else {
         // bottom/right
         glm::vec3 v2 = {
-          (ax + HP_GRIDSIZE + 0.001),
+          ( ax + HP_GRIDSIZE),
           ay,
-          m_heightPlane[ x + 1 ][ y]
+          m_heightPlane[ x + 1 ][ y ]
         };
         glm::vec3 v4 = {
-          (ax + HP_GRIDSIZE  + 0.001 ),
-          (ay + HP_GRIDSIZE + 0.001 ),
+          ( ax + HP_GRIDSIZE ),
+          ( ay + HP_GRIDSIZE ),
           m_heightPlane[ x + 1 ][ y + 1 ]
         };
         glm::vec3 v3 = {
@@ -144,7 +168,6 @@ float HeightPlane::getHeightAt( const float fx, const float fy )
           (ay + HP_GRIDSIZE),
           m_heightPlane[ x ][ y + 1 ]
         };
-
         h = calcZ( v2, v3, v4, fx, fy );
       }
     }

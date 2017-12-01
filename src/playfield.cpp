@@ -39,6 +39,7 @@ bool Playfield::init()
 // draw
 void Playfield::draw()
 {
+
   glPolygonMode( GL_FRONT, GL_FILL);
   glBegin( GL_TRIANGLES);
   setPlaneMaterial2();
@@ -84,10 +85,14 @@ void Playfield::drawSolids()
 
   for( x = 0; x < HP_XSIZE - 1; x++ ) {
     for( y = 0; y < HP_YSIZE - 1; y++ ) {
-      if( !g_squareWhite ) {
+      if( !getParam( HP_PARAM_CHECKERBOARD_IDX ) ) {
+        if( !g_squareWhite ) {
+          glColor3f(0.0, 0.0, 0.0 );
+        }  else {
+          glColor3f(0.9, 0.9, 0.9 );
+        }
+      } else {
         glColor3f(0.0, 0.0, 0.0 );
-      }  else {
-        glColor3f(0.9, 0.9, 0.9 );
       }
 
       g_squareWhite = !g_squareWhite;
