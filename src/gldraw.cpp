@@ -55,11 +55,11 @@ void specialKeys( int key, int x, int y );
 
 void updatePosition()
 {
-  g_vel += (g_velTar - g_vel) / VEL_DAMPER;
+  g_vel += ( g_velTar - g_vel ) / VEL_DAMPER;
 
 #ifndef DEBUG_STEPPOS
-  g_xpos += sin(g_xyDir) * g_vel;
-  g_ypos += cos(g_xyDir) * g_vel;
+  g_xpos += sin( g_xyDir ) * g_vel;
+  g_ypos += cos( g_xyDir ) * g_vel;
 #endif
 
   if( abs( g_xyDir - g_xyDirTar ) > M_PI )
@@ -78,7 +78,7 @@ void updatePosition()
     }
   }
 
-  g_xyDir += (g_xyDirTar - g_xyDir) / TURN_DAMPER;
+  g_xyDir += ( g_xyDirTar - g_xyDir ) / TURN_DAMPER;
 
   if( g_xyDir < 0 ) {
     g_xyDir += M_PI * 2;
@@ -103,13 +103,13 @@ void update( int val )
 {
   updatePosition();
 
-  usleep(16666);
-  //glutSetWindow(g_window);
+  usleep( 16666 );
+  //glutSetWindow( g_window );
   glutPostRedisplay();   // Trigger an automatic redraw for animation
-  glutTimerFunc( val, update, val);
+  glutTimerFunc( val, update, val );
 }
 
-void updateVisibility(int state )
+void updateVisibility( int state )
 {
   if( !g_updateThreadCreated ) {
     g_updateThreadCreated = true;
@@ -139,7 +139,7 @@ int main( int argc, char **argv )
   // initHeightPlane();
 
   //
-  glutInit(&argc,argv);
+  glutInit(&argc,argv );
 
   // We're going to animate it, so double buffer
   glutInitDisplayMode( GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH );
@@ -153,7 +153,7 @@ int main( int argc, char **argv )
 
   initGlobalMatrix();
 
-  glutTimerFunc(16, update, 1);
+  glutTimerFunc( 16, update, 1 );
   glutMainLoop();
 
   return 0;
@@ -165,15 +165,15 @@ void setFog()
 {
   GLuint fogMode[]= { GL_EXP, GL_EXP2, GL_LINEAR };   // Storage For Three Types Of Fog
   GLuint fogfilter= 0;                                // Which Fog To Use
-  GLfloat fogColor[4]= {0.2f, 0.4f, 0.55f, 1.0f};     // Fog Color
+  GLfloat fogColor[ 4 ]= { 0.2f, 0.4f, 0.55f, 1.0f };     // Fog Color
 
-  glFogi(GL_FOG_MODE, fogMode[fogfilter]);
-  glFogfv(GL_FOG_COLOR, fogColor);
-  glFogf(GL_FOG_DENSITY, 0.0125f);
-  glHint(GL_FOG_HINT, GL_NICEST);
-  glFogf(GL_FOG_START, 0.1f);
-  glFogf(GL_FOG_END, 300.0f);
-  glEnable(GL_FOG);
+  glFogi( GL_FOG_MODE, fogMode[ fogfilter ] );
+  glFogfv( GL_FOG_COLOR, fogColor );
+  glFogf( GL_FOG_DENSITY, 0.0125f );
+  glHint( GL_FOG_HINT, GL_NICEST );
+  glFogf( GL_FOG_START, 0.1f );
+  glFogf( GL_FOG_END, 300.0f );
+  glEnable( GL_FOG );
 }
 
 // Set up camera
@@ -183,19 +183,19 @@ void setCamera()
   GLint viewport[4];
   glGetIntegerv( GL_VIEWPORT, viewport );
 
-  gluPerspective( 45, double(viewport[2])/viewport[3], 0.01, 300 );
-  glMatrixMode(GL_MODELVIEW);
+  gluPerspective( 45, double( viewport[2])/viewport[3], 0.01, 300 );
+  glMatrixMode( GL_MODELVIEW );
   glLoadIdentity();
   gluLookAt( g_xpos,
       g_ypos,
       g_pPlayfield->getHeightAt( g_xpos, g_ypos ) + 2,
-      g_xpos - sin(g_xyDir),
-      g_ypos - cos(g_xyDir),
+      g_xpos - sin( g_xyDir ),
+      g_ypos - cos( g_xyDir ),
       g_pPlayfield->getHeightAt( g_xpos, g_ypos ) + 2,
       0,
       0,
       3 );
-  glMultMatrixf(mo);
+  glMultMatrixf( mo );
 }
 
 GLfloat ambientLightGlobal[] = {0.2f, 0.2f, 0.2f, 1.0f};
@@ -212,12 +212,12 @@ void setLight()
   //glMatrixMode( GL_MODELVIEW );         // Current matrix affects objects positions
   //glLoadIdentity();                  // Initialize to the identity
 
-  //Diffuse (non-shiny) light component
-  glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuseLight);
-  //Specular (shiny) light component
-  glLightfv(GL_LIGHT0, GL_SPECULAR, specularLight);
+  //Diffuse ( non-shiny ) light component
+  glLightfv( GL_LIGHT0, GL_DIFFUSE, diffuseLight );
+  //Specular ( shiny ) light component
+  glLightfv( GL_LIGHT0, GL_SPECULAR, specularLight );
   // Global ambient
-  glLightfv(GL_LIGHT0, GL_AMBIENT, ambientLight);
+  glLightfv( GL_LIGHT0, GL_AMBIENT, ambientLight );
 
 #if 0
   // Normalize the light. Note, only needs must be done once.
@@ -234,7 +234,7 @@ void setLight()
 #endif
 
   // Light position
-  glLightfv(GL_LIGHT0, GL_POSITION, lightPos);
+  glLightfv( GL_LIGHT0, GL_POSITION, lightPos );
 }
 
 
@@ -255,7 +255,7 @@ void display()
   glRotatef( g_angle, g_rotX, g_rotY, g_rotZ );
   glTranslatef( -HP_XMID, -HP_YMID, 0.0 );            // Translate rotation center to origin
 
-  //  glMultMatrixf(mo);
+  //  glMultMatrixf( mo );
   //  glGetFloatv( GL_MODELVIEW_MATRIX, mo );
 
   glPopMatrix();
@@ -263,20 +263,20 @@ void display()
   //setLight();
   glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
-  glLightModelfv(GL_LIGHT_MODEL_AMBIENT, ambientLightGlobal);
+  glLightModelfv( GL_LIGHT_MODEL_AMBIENT, ambientLightGlobal );
 
-  glEnable(GL_DEPTH_TEST);
-  glEnable(GL_NORMALIZE);
-  //glEnable(GL_LIGHTING);
-  //glEnable(GL_LIGHT0);
-  glShadeModel(GL_FLAT);
-  glEnable(GL_COLOR_MATERIAL);
+  glEnable( GL_DEPTH_TEST );
+  glEnable( GL_NORMALIZE );
+  //glEnable( GL_LIGHTING );
+  //glEnable( GL_LIGHT0 );
+  glShadeModel( GL_FLAT );
+  glEnable( GL_COLOR_MATERIAL );
 
   // Clear to sky color / draw sky
   glClearColor( 0.2, 0.4, 0.55, 1.0 );
   setFog();
 
-  glMatrixMode(GL_PROJECTION);
+  glMatrixMode( GL_PROJECTION );
   glLoadIdentity();
   setCamera();
 	g_pPlayfield->draw();
@@ -290,7 +290,7 @@ void display()
 //
 void initGlobalMatrix()
 {
-  memset( mo, 0, sizeof(mo) );
+  memset( mo, 0, sizeof( mo ) );
   mo[0]=mo[5]=mo[10]=mo[15]=1;
   glutPostRedisplay();
 }
@@ -308,7 +308,7 @@ void updateGlobalMatrix( float angle, float x, float y, float z )
   g_rotY = y;
   g_rotZ = z;
   g_angle = angle;
-  if( g_angle > 360) {
+  if( g_angle > 360 ) {
     g_angle -= 360;
   }
   if( g_angle < 0 ) {
@@ -359,7 +359,7 @@ void keyboard( unsigned char key, int x, int y )
 }
 
 // specialKeys
-// Handle non-visible keys like arrows (OpenGL idiosyncrasy)
+// Handle non-visible keys like arrows ( OpenGL idiosyncrasy )
 // Entry:  key code
 //        x
 //        y
@@ -375,8 +375,8 @@ void specialKeys( int key, int x, int y )
       }
 #ifdef DEBUG_STEPPOS
       // TEMP CODE; REMOVE
-      g_xpos += sin(g_xyDir) * VEL_DEFAULT;
-      g_ypos += cos(g_xyDir) * VEL_DEFAULT;
+      g_xpos += sin( g_xyDir ) * VEL_DEFAULT;
+      g_ypos += cos( g_xyDir ) * VEL_DEFAULT;
 #endif
       break;
     case GLUT_KEY_UP:
@@ -387,8 +387,8 @@ void specialKeys( int key, int x, int y )
       }
 #ifdef DEBUG_STEPPOS
       // TEMP CODE; REMOVE
-      g_xpos -= sin(g_xyDir) * VEL_DEFAULT;
-      g_ypos -= cos(g_xyDir) * VEL_DEFAULT;
+      g_xpos -= sin( g_xyDir ) * VEL_DEFAULT;
+      g_ypos -= cos( g_xyDir ) * VEL_DEFAULT;
 #endif
       break;
     case GLUT_KEY_LEFT:
