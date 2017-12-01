@@ -20,8 +20,8 @@ float g_rotX = 0.0;
 float g_rotY = 1.0;
 float g_rotZ = 0.0;
 
-#define HP_XSIZE 200
-#define HP_YSIZE 200
+#define HP_XSIZE 300
+#define HP_YSIZE 300
 #define HP_GRIDSIZE 1.0
 #define HP_XMID (HP_GRIDSIZE * HP_XSIZE / 2)
 #define HP_YMID (HP_GRIDSIZE * HP_YSIZE / 2)
@@ -143,7 +143,7 @@ void initHeightPlane()
       //atten /= HP_XMID;
 
       //atten = 0.5 - pow ( 1 / ( 1 + pow(atten, -2 ) ), 25 );
-      atten = 1 - pow ( 1 / ( 1 + pow(atten, -1 ) ), 30);
+      atten = 1 - pow ( 1 / ( 1 + pow(atten, -1 ) ), 40);
       atten -= 0.25;
 
       if( atten < 0 ) {
@@ -157,41 +157,18 @@ void initHeightPlane()
 
       //h = sin( x * (M_PI * 2 / HP_XSIZE) * 6 ) * 4;
       h = sin( theta * (M_PI * 2 / HP_XSIZE) * 6) * 1 + 
-        sin( theta * (M_PI * 2 / HP_XSIZE) * 4.23 ) * 1.2;
+        sin( theta * (M_PI * 2 / HP_XSIZE) * 3.23 ) * 1.2;
         sin( theta * (M_PI * 2 / HP_XSIZE) * 9.1 ) * 1 +
-        sin( theta * (M_PI * 2 / HP_XSIZE) *19.1 ) * 0.7;
+        sin( theta * (M_PI * 2 / HP_XSIZE) *19.1 ) * 0.3;
       h += sin( y * (M_PI * 2 / HP_XSIZE) * 5.3) * 2.1 +
-        sin( y * (M_PI * 2 / HP_XSIZE) * 4.1) * 3;
-        sin( y * (M_PI * 2 / HP_XSIZE) * 11.1) * 1;
+        sin( y * (M_PI * 2 / HP_XSIZE) * 1.1) * 5;
+        sin( y * (M_PI * 2 / HP_XSIZE) * 9.1) * 1;
+        sin( y * (M_PI * 2 / HP_XSIZE) * 13.1) * 0.2;
         
       h *= 5;
       h *= atten;
       g_heightPlane[ x ][ y ] = h;
       theta += 0.01;
-    }
-  }
-}
-
-// drawHeightPlane
-//
-void drawHeightPlane()
-{
-  int x, y;
-  for( x = 0; x < HP_XSIZE - 1; x++ ) {
-    for( y = 0; y < HP_YSIZE - 1; y++ ) {
-      glVertex3f( (double) x * HP_GRIDSIZE, (double) y * HP_GRIDSIZE, g_heightPlane[ x ][ y ] );
-      glNormal3f( (double) x * HP_GRIDSIZE, (double) y * HP_GRIDSIZE, g_heightPlane[ x ][ y ] );
-      glVertex3f( (double) ( x + 1 ) * HP_GRIDSIZE , (double) y * HP_GRIDSIZE, g_heightPlane[ x + 1 ][ y ] );
-      glNormal3f( (double) ( x + 1 ) * HP_GRIDSIZE , (double) y * HP_GRIDSIZE, g_heightPlane[ x + 1 ][ y ] );
-      glVertex3f( (double) x * HP_GRIDSIZE, (double) ( y + 1) * HP_GRIDSIZE, g_heightPlane[ x ][ y + 1 ] );
-      glNormal3f( (double) x * HP_GRIDSIZE, (double) ( y + 1) * HP_GRIDSIZE, g_heightPlane[ x ][ y + 1 ] );
-
-      glVertex3f( (double) ( x + 1 ) * HP_GRIDSIZE , (double) y * HP_GRIDSIZE, g_heightPlane[ x + 1 ][ y ] );
-      glNormal3f( (double) ( x + 1 ) * HP_GRIDSIZE , (double) y * HP_GRIDSIZE, g_heightPlane[ x + 1 ][ y ] );
-      glVertex3f( (double) ( x + 1) * HP_GRIDSIZE , (double) ( y + 1 ) * HP_GRIDSIZE, g_heightPlane[ x + 1 ][ y + 1 ] );
-      glNormal3f( (double) ( x + 1) * HP_GRIDSIZE , (double) ( y + 1 ) * HP_GRIDSIZE, g_heightPlane[ x + 1 ][ y + 1 ] );
-      glVertex3f( (double) x * HP_GRIDSIZE, (double) ( y + 1 ) * HP_GRIDSIZE, g_heightPlane[ x ][ y + 1 ] );
-      glNormal3f( (double) x * HP_GRIDSIZE, (double) ( y + 1 ) * HP_GRIDSIZE, g_heightPlane[ x ][ y + 1 ] );
     }
   }
 }
@@ -372,12 +349,11 @@ void setFog()
   GLuint filter;                                      // Which Filter To Use
   GLuint fogMode[]= { GL_EXP, GL_EXP2, GL_LINEAR };   // Storage For Three Types Of Fog
   GLuint fogfilter= 0;                                // Which Fog To Use
-  GLfloat fogColor[4]= {0.1f, 0.5f, 0.75f, 1.0f};     // Fog Color
-
+  GLfloat fogColor[4]= {0.0f, 0.0f, 0.0f, 1.0f};     // Fog Color
 
   glFogi(GL_FOG_MODE, fogMode[fogfilter]);  // Fog Mode
   glFogfv(GL_FOG_COLOR, fogColor);          // Set Fog Color
-  glFogf(GL_FOG_DENSITY, 0.0025f);          // How Dense Will The Fog Be
+  glFogf(GL_FOG_DENSITY, 0.025f);          // How Dense Will The Fog Be
   glHint(GL_FOG_HINT, GL_NICEST);           // Fog Hint Value
   glFogf(GL_FOG_START, 0.1f);               // Fog Start Depth
   glFogf(GL_FOG_END, 300.0f);               // Fog End Depth
@@ -390,7 +366,6 @@ void setCamera()
 {
   GLint viewport[4];
   glGetIntegerv( GL_VIEWPORT, viewport );
-
 
   gluPerspective( 45, double(viewport[2])/viewport[3], 0.01, 300 );
   glMatrixMode(GL_MODELVIEW);
@@ -412,10 +387,56 @@ GLfloat lightPos[] ={100.0, 150.0, -10000, 0.0};
 GLfloat ambientLight[] = {0.0f, 0.3f, 0.0f, 1.0f};
 GLfloat diffuseLight[] = {0.8f, 0.8f, 0.8f, 1.0f};
 GLfloat specularLight[] = {0.9f, 0.9f, 0.9f, 1.0f};
-GLfloat materialColor1[] = {0.4f, 0.5f, 0.1f, 0.9f};
-GLfloat materialEmission[] = {0.0f, 0.0f, 0.0f, 1.0f};
+GLfloat materialEmission[] = {1.0f, 1.0f, 1.0f, 1.0f};
 GLfloat materialAmbient[] = {0.4f, 0.5f, 0.1f, 1.0f};
 GLfloat materialSpecular[] = {0.41, 0.52, 0.11, 0.2};
+
+GLfloat material2Emission[] = {0.0f, 0.0f, 0.0f, 1.0f};
+GLfloat material2Ambient[] = {0.4f, 0.5f, 0.1f, 1.0f};
+
+
+
+// drawHeightPlaneLines
+//
+void drawHeightPlaneLines()
+{
+  int x, y;
+  for( x = 0; x < HP_XSIZE - 1; x++ ) {
+    for( y = 0; y < HP_YSIZE - 1; y++ ) {
+      glVertex3f( (double) x * HP_GRIDSIZE, (double) y * HP_GRIDSIZE, g_heightPlane[ x ][ y ] + 0.02 );
+      glVertex3f( (double) ( x + 1 ) * HP_GRIDSIZE , (double) y * HP_GRIDSIZE, g_heightPlane[ x + 1 ][ y ] + 0.02 );
+      glVertex3f( (double) ( x + 1) * HP_GRIDSIZE , (double) ( y + 1 ) * HP_GRIDSIZE, g_heightPlane[ x + 1 ][ y + 1 ] + 0.02 );
+      glVertex3f( (double) x * HP_GRIDSIZE, (double) ( y + 1 ) * HP_GRIDSIZE, g_heightPlane[ x ][ y + 1 ] + 0.02 );
+    }
+  }
+}
+
+
+// drawHeightPlane
+//
+void drawHeightPlane()
+{
+  int x, y;
+  for( x = 0; x < HP_XSIZE - 1; x++ ) {
+    for( y = 0; y < HP_YSIZE - 1; y++ ) {
+      glVertex3f( (double) x * HP_GRIDSIZE, (double) y * HP_GRIDSIZE, g_heightPlane[ x ][ y ] );
+      glNormal3f( (double) x * HP_GRIDSIZE, (double) y * HP_GRIDSIZE, g_heightPlane[ x ][ y ] );
+      glVertex3f( (double) ( x + 1 ) * HP_GRIDSIZE , (double) y * HP_GRIDSIZE, g_heightPlane[ x + 1 ][ y ] );
+      glNormal3f( (double) ( x + 1 ) * HP_GRIDSIZE , (double) y * HP_GRIDSIZE, g_heightPlane[ x + 1 ][ y ] );
+      glVertex3f( (double) x * HP_GRIDSIZE, (double) ( y + 1) * HP_GRIDSIZE, g_heightPlane[ x ][ y + 1 ] );
+      glNormal3f( (double) x * HP_GRIDSIZE, (double) ( y + 1) * HP_GRIDSIZE, g_heightPlane[ x ][ y + 1 ] );
+
+      glVertex3f( (double) ( x + 1 ) * HP_GRIDSIZE , (double) y * HP_GRIDSIZE, g_heightPlane[ x + 1 ][ y ] );
+      glNormal3f( (double) ( x + 1 ) * HP_GRIDSIZE , (double) y * HP_GRIDSIZE, g_heightPlane[ x + 1 ][ y ] );
+      glVertex3f( (double) ( x + 1) * HP_GRIDSIZE , (double) ( y + 1 ) * HP_GRIDSIZE, g_heightPlane[ x + 1 ][ y + 1 ] );
+      glNormal3f( (double) ( x + 1) * HP_GRIDSIZE , (double) ( y + 1 ) * HP_GRIDSIZE, g_heightPlane[ x + 1 ][ y + 1 ] );
+      glVertex3f( (double) x * HP_GRIDSIZE, (double) ( y + 1 ) * HP_GRIDSIZE, g_heightPlane[ x ][ y + 1 ] );
+      glNormal3f( (double) x * HP_GRIDSIZE, (double) ( y + 1 ) * HP_GRIDSIZE, g_heightPlane[ x ][ y + 1 ] );
+    }
+  }
+}
+
+
 
 
 
@@ -423,7 +444,6 @@ GLfloat materialSpecular[] = {0.41, 0.52, 0.11, 0.2};
 //
 void setLight()
 {
-
   //glMatrixMode( GL_MODELVIEW );         // Current matrix affects objects positions
   //glLoadIdentity();                  // Initialize to the identity
 
@@ -459,12 +479,25 @@ void setLight()
 //
 void setPlaneMaterial()
 {
-  glColor3f(0.5,0.7,0.2);
-  glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, materialAmbient);
-  glMaterialfv(GL_FRONT, GL_SPECULAR, materialSpecular);
-  glMaterialfv(GL_FRONT, GL_EMISSION, materialEmission);
-  glMaterialf(GL_FRONT, GL_SHININESS,100.8); //The shininess parameter
+  glColor3f(1.0, 1.0, 1.0 );
+  glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, materialAmbient);
+  //glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, materialSpecular);
+  glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, materialEmission);
+  //glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS,100.8); //The shininess parameter
 }
+
+// Set up material
+//
+void setPlaneMaterial2()
+{
+  glColor3f(0.0, 0.0, 0.0 );
+  glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, material2Ambient);
+  //glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, materialSpecular);
+  glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, material2Emission);
+  //glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS,100.8); //The shininess parameter
+}
+
+
 
 // Display
 // Update the display
@@ -488,20 +521,20 @@ void display()
 
   glPopMatrix();
 
-  setLight();
+  //setLight();
   glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
   glLightModelfv(GL_LIGHT_MODEL_AMBIENT, ambientLightGlobal);
 
   glEnable(GL_DEPTH_TEST);
   glEnable(GL_NORMALIZE);
-  glEnable(GL_LIGHTING);
-  glEnable(GL_LIGHT0);
-  glShadeModel(GL_SMOOTH);
+  //glEnable(GL_LIGHTING);
+  //glEnable(GL_LIGHT0);
+  glShadeModel(GL_FLAT);
   glEnable(GL_COLOR_MATERIAL);
 
   // Clear to sky color / draw sky
-  glClearColor( 0.1, 0.5, 0.75, 1.0 );
+  glClearColor( 0.0, 0.0, 0.0, 1.0 );
 
   setFog();
 
@@ -510,13 +543,24 @@ void display()
 
   setCamera();
   // Clear the rendering window
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-  glPolygonMode( GL_FRONT, GL_FILL);
 
-  glBegin( GL_TRIANGLES );
-  setPlaneMaterial();
+
+  glPolygonMode( GL_FRONT, GL_FILL);
+  glBegin( GL_TRIANGLES);
+  setPlaneMaterial2();
   drawHeightPlane();
   glEnd();
+  glFlush();
+
+  //glClear(GL_DEPTH_BUFFER_BIT);
+  glPolygonMode( GL_FRONT_AND_BACK, GL_LINE);
+  glBegin( GL_QUADS);
+  setPlaneMaterial();
+  drawHeightPlaneLines();
+  glEnd();
+
+
+
 
   // Flush the pipeline, swap the buffers
   glFlush();
@@ -617,8 +661,7 @@ void specialKeys( int key, int x, int y )
 #endif
       break;
     case GLUT_KEY_UP:
-
-      g_velTar = -VEL_DEFAULT;
+      g_velTar += -VEL_DEFAULT;
       if( g_velTar < -VEL_MAX )
       {
         g_velTar = -VEL_MAX;

@@ -2,7 +2,7 @@
 CC          := g++
 
 #The Target Binary Program
-TARGET      := glh
+TARGET      := gls
 
 #The Directories, Source, Includes, Objects, Binary and Resources
 SRCDIR      := src
