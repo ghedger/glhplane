@@ -1,3 +1,6 @@
+// heightplane.h
+// Implement height plane
+
 #pragma once
 
 #include "gameobject.h"
@@ -14,6 +17,7 @@ class HeightPlane : public GameObject
     ~HeightPlane();
 
     virtual float getHeightAt( const float x, const float y );
+    glm::vec3 getNormalAt( const float x, const float y );
 
     virtual void setParam( const int paramIdx, const int val )
     {
@@ -25,6 +29,8 @@ class HeightPlane : public GameObject
       return( m_param[ paramIdx ] );
     };
 
+    virtual float getXMid() { return HP_XMID; };
+    virtual float getYMid() { return HP_YMID; };
 
   protected:
     bool initHeightPlane();

@@ -1,4 +1,4 @@
-// Main entry point
+// Main entry pointt
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -27,6 +27,7 @@ float g_rotZ = 0.0;
 
 Playfield *g_pPlayfield = NULL;
 
+
 // Global positioning
 float g_xpos;
 float g_ypos;
@@ -42,6 +43,28 @@ float g_xyDirTar;
 float g_vel;
 float g_velTar;
 
+// Cartesian coordinates used for sliding
+float g_xvel;
+float g_yvel;
+
+double ki = 0.0000;   // integral error multiplier constant
+double kp = 0.0045;    // proportional error multipler constant
+
+double pv[2] = {0.0, 0.0};          // process variable 
+double t = 1.0;                      // discrete time delta constant
+double pi[2] = {0.0, 0.0};          // process integral 
+double e[2] = {0.0, 0.0};           // error 
+double kg = 0.1;                    // gravity constant
+
+double dp[2] = {0.0, 0.0};    // delta p 
+
+double clamp = 10.0;  // maximum change per iteration
+double windup_clamp = 10.0;
+
+double kv = 0.5;
+
+//#define USE_CLAMPS
+
 // Window scaffolding
 int g_window;
 static int g_updateThreadCreated = false;
@@ -55,17 +78,75 @@ void display();
 void keyboard( unsigned char key, int x, int y );
 void specialKeys( int key, int x, int y );
 
+void initSphere();
+
+// Simple physics, using PID control loop to simulate cumulative gravity and friction.
+void updatePhysics()
+{
+  // Get the normalized slip-slidin' vector; discard the z component and apply
+  // x and y to our motion
+  glm::vec3 nv = g_pPlayfield->getNormalAt( g_xpos, g_ypos );
+
+  // Slip-slidin' away
+  double sp;
+  for( int i = 0; i < 2; i++ )
+  {
+    sp = i ? nv.y : nv.x;
+
+    e[i] = sp - pv[i];
+    pi[i] += e[i];
+
+    // set delta p
+    dp[i] = kp * e[i] + ki * pi[i];
+
+#if defined(USE_CLAMPS)
+    // clamp delta p
+    if( dp[i] > clamp ) {
+      dp[i] = clamp;
+      pi[i] = 0.0;     // Reset the integral term 
+      printf("CLAMP");
+    }
+    if( dp[i] < -clamp ) {
+      dp[i] = -clamp;
+      pi[i] = 0.0;     // Reset the integral term 
+      printf("CLAMP");
+    }
+#endif
+    pv[i] = pv[i] + dp[i];        // Not going to use gravity constant for now... - kg;
+  }
+
+  g_xvel = pv[0];
+  g_yvel = pv[1];
+
+
+  // Apply Friction
+  g_xvel = g_xvel * (1.0 - FRICTION_COEFF);
+  g_yvel = g_yvel * (1.0 - FRICTION_COEFF);
+  printf(" pv:%1.3lf pi:%1.3lf e:%1.3lf dp:%1.3lf  %1.3lf", pv[0], pi[0], e[0], dp[0], nv.x);
+  printf("\n");
+  //printf( "{ %2.2f %2.2f %2.2f }  { %2.3f  %2.3f }\n",nv.x, nv.y, nv.z, g_xvel, g_yvel );
+}
+
+
 void updatePosition()
 {
+  updatePhysics();
+
   g_vel += ( g_velTar - g_vel ) / VEL_DAMPER;
 
-	g_xposPrev = g_xpos;
-	g_yposPrev = g_ypos;
-	g_zposPrev = g_zpos;
+  g_xposPrev = g_xpos;
+  g_yposPrev = g_ypos;
+  g_zposPrev = g_zpos;
+
+  g_xvel += (sin( g_xyDir ) * g_vel) * kv;
+  g_yvel += (cos( g_xyDir ) * g_vel) * kv;
+
+  g_xpos += g_xvel;
+  g_ypos += g_yvel;
 
 #ifndef DEBUG_STEPPOS
-  g_xpos += sin( g_xyDir ) * g_vel;
-  g_ypos += cos( g_xyDir ) * g_vel;
+  //g_xpos += sin( g_xyDir ) * g_vel + g_xvel;
+  //g_ypos += cos( g_xyDir ) * g_vel + g_yvel;
 #endif
 
   if( abs( g_xyDir - g_xyDirTar ) > M_PI )
@@ -84,35 +165,33 @@ void updatePosition()
     }
   }
 
-	// Clamp position
-	if( g_xpos > ( HP_XSIZE - 2 ) * HP_GRIDSIZE ) {
-		if( g_xposPrev < g_xpos ) {
-			g_xpos = HP_XSIZE * HP_GRIDSIZE - 0.00001;
-		}
-	}
-	if( g_xpos < 0 ) {
-		if( g_xposPrev > g_xpos ) {
-			g_xpos = 0;
-		}
-	}
-	if( g_ypos > ( HP_YSIZE - 2 ) * HP_GRIDSIZE ) {
-		if( g_yposPrev < g_ypos ) {
-			g_ypos = HP_XSIZE * HP_GRIDSIZE - 0.00001;
-		}
-	}
-	if( g_ypos < 0 ) {
-		if( g_yposPrev > g_ypos ) {
-			g_ypos = 0;
-		}
-	}
+  // Clamp position
+  if( g_xpos > ( HP_XSIZE - 2 ) * HP_GRIDSIZE ) {
+    if( g_xposPrev < g_xpos ) {
+      g_xpos = HP_XSIZE * HP_GRIDSIZE - 0.00001;
+    }
+  }
+  if( g_xpos < 0 ) {
+    if( g_xposPrev > g_xpos ) {
+      g_xpos = 0;
+    }
+  }
+  if( g_ypos > ( HP_YSIZE - 2 ) * HP_GRIDSIZE ) {
+    if( g_yposPrev < g_ypos ) {
+      g_ypos = HP_XSIZE * HP_GRIDSIZE - 0.00001;
+    }
+  }
+  if( g_ypos < 0 ) {
+    if( g_yposPrev > g_ypos ) {
+      g_ypos = 0;
+    }
+  }
 
+  // Only get the z position AFTER all the x/y position update
+  // including clamping is completed.
+  g_zpos = g_pPlayfield->getHeightAt( g_xpos, g_ypos );
 
-	// Only get the z position AFTER all the x/y position update
-	// including clamping is completed.
-	g_zpos = g_pPlayfield->getHeightAt( g_xpos, g_ypos );
-
-	// Update direction
-
+  // Update direction
   g_xyDir += ( g_xyDirTar - g_xyDir ) / TURN_DAMPER;
 
   if( g_xyDir < 0 ) {
@@ -137,7 +216,7 @@ void updatePosition()
 void update( int val )
 {
 
-  usleep( 16666 );
+  usleep( 16667 );
   updatePosition();
   //glutSetWindow( g_window );
   glutPostRedisplay();   // Trigger an automatic redraw for animation
@@ -155,18 +234,27 @@ void updateVisibility( int state )
 
 void init()
 {
-	// Init global positioning
-  g_xpos = 30.0;
-  g_ypos = 30.0;
-  g_zpos = 0.0;
-  g_zposLookatTar = 0.0;
-  g_xyDir = M_PI + M_PI / 4;
-  g_xyDirTar = g_xyDir;
-  g_vel = 0.0;
-  g_velTar = 0.0;
+  // Init playfield
+  g_pPlayfield = new Playfield();
+  if( g_pPlayfield ) {
 
-	// Init playfield
-	g_pPlayfield = new Playfield();
+    // Init global positioning
+    g_xpos = g_pPlayfield->getXMid();
+    g_ypos = g_pPlayfield->getYMid();
+    g_zpos = 0.0;
+    g_zposLookatTar = 0.0;
+    g_xyDir = M_PI + M_PI / 4;
+    g_xyDirTar = g_xyDir;
+    g_vel = 0.0;
+    g_velTar = 0.0;
+    g_xvel = 0.0;
+    g_yvel = 0.0;
+  } else {
+    // TODO: Exit program with error
+  }
+
+  initSphere();
+
 }
 
 int main( int argc, char **argv )
@@ -214,7 +302,9 @@ void setFog()
   glEnable( GL_FOG );
 }
 
-// Set up camera
+
+#define CAM_DIST 12.0
+// Set up camera for this draw frame
 //
 void setCamera()
 {
@@ -225,27 +315,297 @@ void setCamera()
   glMatrixMode( GL_MODELVIEW );
   glLoadIdentity();
 
-	float zposLookatTarDelta = ( ( g_zpos - g_zposPrev ) - g_zposLookatTar ) / 4;
+  float zposLookatTarDelta = ( ( g_zpos - g_zposPrev ) - g_zposLookatTar ) / 4;
 
-	g_zposLookatTar += zposLookatTarDelta;
+  g_zposLookatTar += zposLookatTarDelta;
+  //g_zposLookatTar = 0.0;    // TEMP
+
+  double eyeX = g_xpos + sin(g_xyDir) * CAM_DIST;
+  double eyeY = g_ypos + cos(g_xyDir) * CAM_DIST;
+  double eyeZ = g_pPlayfield->getHeightAt( eyeX, eyeY ) + 2.0;
 
   gluLookAt(
-			g_xpos,
-      g_ypos,
-      g_zpos + 2.0 - g_zposLookatTar,
+      eyeX,
+      eyeY,
+      eyeZ,
       g_xpos - sin( g_xyDir ),
       g_ypos - cos( g_xyDir ),
       g_zpos + 2.0,
       0,
       0,
       3
-	);
+      );
   glMultMatrixf( mo );
 }
 
+
+
+
+#define FACE_SIZE 4096 
+GLuint pixels_face0[FACE_SIZE];
+GLuint pixels_face1[FACE_SIZE];
+GLuint pixels_face2[FACE_SIZE];
+GLuint pixels_face3[FACE_SIZE];
+GLuint pixels_face4[FACE_SIZE];
+GLuint pixels_face5[FACE_SIZE];
+
+#define width 64
+#define height 64
+
+GLuint g_textureID = 0;
+
+void initSphereMapping(GLuint *pTextureID)
+{
+  glGenTextures(1, pTextureID);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, *pTextureID);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_BASE_LEVEL, 0); 
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAX_LEVEL, 0); 
+  //Define all 6 faces
+  glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X, 0, GL_RGBA8, width, height, 0, GL_BGRA, GL_UNSIGNED_BYTE, pixels_face0);
+  glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_X, 0, GL_RGBA8, width, height, 0, GL_BGRA, GL_UNSIGNED_BYTE, pixels_face1);
+  glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_Y, 0, GL_RGBA8, width, height, 0, GL_BGRA, GL_UNSIGNED_BYTE, pixels_face2);
+  glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_Y, 0, GL_RGBA8, width, height, 0, GL_BGRA, GL_UNSIGNED_BYTE, pixels_face3);
+  glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_Z, 0, GL_RGBA8, width, height, 0, GL_BGRA, GL_UNSIGNED_BYTE, pixels_face4);
+  glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, GL_RGBA8, width, height, 0, GL_BGRA, GL_UNSIGNED_BYTE, pixels_face5);
+}
+
+
+#define D3DMXVECTOR3 glm::vec3
+#define D3DMX_PI M_PI
+
+typedef struct CUSTOMVERTEX
+{
+  glm::vec3   normal;
+  glm::vec3   position;
+};
+
+const unsigned int ui_VCount = 1330;
+CUSTOMVERTEX *arr_Vertices;
+
+#define FLOAT float
+#define DWORD unsigned int
+
+const int g_factor = 20;
+
+void initSphere()
+{
+
+  // for environment mapping
+  initSphereMapping( &g_textureID );
+
+
+  const int iFactor = g_factor;
+  int iPos = 0;
+
+  arr_Vertices = new CUSTOMVERTEX[ui_VCount * 2];
+  DWORD ui_ShapeCount = iFactor *iFactor * 2; // use when rendering
+
+  float arrV[iFactor* iFactor][3];
+
+  for (DWORD j= 0; j < iFactor; j ++)
+  {
+    FLOAT theta = (D3DMX_PI*j)/(iFactor);
+
+    for( DWORD i=0; i<iFactor; i++ )
+    {
+      iPos = j*iFactor+i;
+      FLOAT phi = (2*D3DMX_PI*i)/(iFactor);
+      arrV[iPos][0] = (float)(sin(theta)*cos(phi));
+      arrV[iPos][1] = (float)(sin(theta)*sin(phi));
+      arrV[iPos][2] = (float)(cos(theta));
+
+      /*std::cout << "[" << j <<"][" << i << "] = " << arrV[iPos][0]  
+        << "," << arrV[iPos][1] << "," << arrV[iPos][2] <<std::endl;*/
+    }
+  }
+
+  int iNext = 0;
+
+  for (DWORD j= 0; j < iFactor; j ++)
+  { 
+
+    for( DWORD i=0; i<iFactor; i++ )
+    {
+      if (i == iFactor - 1)
+        iNext = 0;
+      else iNext = i +1;
+
+      iPos = (j*iFactor*6)+(i*6);
+      arr_Vertices[iPos].position = D3DMXVECTOR3( arrV[j*iFactor+i][0], arrV[j*iFactor+i][1], arrV[j*iFactor+i][2]);
+      arr_Vertices[iPos + 1].position = D3DMXVECTOR3( arrV[j*iFactor+iNext][0], arrV[j*iFactor+iNext][1], arrV[j*iFactor+iNext][2]);
+
+
+      if (j != iFactor -1)
+        arr_Vertices[iPos + 2].position = D3DMXVECTOR3( arrV[((j+1)*iFactor)+i][0], arrV[((j+1)*iFactor)+i][1], arrV[((j+1)*iFactor)+i][2]);
+      else
+        arr_Vertices[iPos + 2].position = D3DMXVECTOR3( 0, 0, -1); //Create a pseudo triangle fan for the last set of triangles
+
+      arr_Vertices[iPos].normal = D3DMXVECTOR3( arr_Vertices[iPos].position.x, arr_Vertices[iPos].position.y, arr_Vertices[iPos].position.z);
+      arr_Vertices[iPos + 1].normal = D3DMXVECTOR3( arr_Vertices[iPos+1].position.x, arr_Vertices[iPos+1].position.y, arr_Vertices[iPos+1].position.z);
+      arr_Vertices[iPos + 2].normal = D3DMXVECTOR3( arr_Vertices[iPos+2].position.x, arr_Vertices[iPos+2].position.y, arr_Vertices[iPos+2].position.z);
+
+      arr_Vertices[iPos + 3].position = D3DMXVECTOR3( arr_Vertices[iPos+2].position.x, arr_Vertices[iPos+2].position.y, arr_Vertices[iPos+2].position.z);
+      arr_Vertices[iPos + 4].position = D3DMXVECTOR3( arr_Vertices[iPos+1].position.x, arr_Vertices[iPos+1].position.y, arr_Vertices[iPos+1].position.z);
+
+      if (j != iFactor - 1)
+        arr_Vertices[iPos + 5].position = D3DMXVECTOR3( arrV[((j+1)*iFactor)+iNext][0], arrV[((j+1)*iFactor)+iNext][1], arrV[((j+1)*iFactor)+iNext][2]);
+      else
+        arr_Vertices[iPos + 5].position = D3DMXVECTOR3( 0,0,-1);
+
+      arr_Vertices[iPos + 3].normal = D3DMXVECTOR3( arr_Vertices[iPos+3].position.x, arr_Vertices[iPos+3].position.y, arr_Vertices[iPos+3].position.z);
+      arr_Vertices[iPos + 4].normal = D3DMXVECTOR3( arr_Vertices[iPos+4].position.x, arr_Vertices[iPos+4].position.y, arr_Vertices[iPos+4].position.z);
+      arr_Vertices[iPos + 5].normal = D3DMXVECTOR3( arr_Vertices[iPos+5].position.x, arr_Vertices[iPos+5].position.y, arr_Vertices[iPos+5].position.z);
+
+      //std::cout << "[" << iPos <<"] = " << arr_Vertices[iPos].position.x << 
+      //  "," << arr_Vertices[iPos].position.y <<
+      //  "," << arr_Vertices[iPos].position.z <<std::endl;
+
+      //std::cout << "[" << iPos + 1 <<"] = " << arr_Vertices[iPos + 1].position.x << 
+      //  "," << arr_Vertices[iPos+ 1].position.y <<
+      //  "," << arr_Vertices[iPos+ 1].position.z <<std::endl;
+
+      //std::cout << "[" << iPos + 2 <<"] = " << arr_Vertices[iPos].position.x << 
+      //  "," << arr_Vertices[iPos + 2].position.y <<
+      //  "," << arr_Vertices[iPos + 2].position.z <<std::endl;
+    }
+  }
+}
+
+
+
+// Set up material
+//
+void setMaterial()
+{
+  GLfloat materialEmission[] = {0.01f, 0.01f, 0.01f, 1.0f};
+  GLfloat materialAmbient[] = {0.4f, 0.1f, 0.1f, 1.0f};
+  GLfloat materialSpecular[] = {0.81, 0.81, 0.89, 0.2};
+
+  glColor3f(1.0, 0.2, 0.2 );
+  glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, materialAmbient);
+  glMaterialfv(GL_FRONT, GL_SPECULAR, materialSpecular);
+  glMaterialfv(GL_FRONT, GL_EMISSION, materialEmission);
+  glMaterialf(GL_FRONT, GL_SHININESS,100.8); //The shininess parameter
+
+  glShadeModel( GL_SMOOTH);
+}
+
+
+void drawSphere()
+{
+  const int iFactor = g_factor;
+  int iPos = 0;
+
+  DWORD ui_ShapeCount = iFactor *iFactor * 2; // use when rendering
+#if 1
+// ENVIRONMENT MAPPING DOESN'T WORK!!!
+
+  glTranslatef( g_xpos, g_ypos, g_pPlayfield->getHeightAt( g_xpos, g_ypos ) + 1.0 );
+  // glMatrixMode( GL_MODELVIEW);
+
+  glMatrixMode(GL_TEXTURE);
+  glEnable(GL_AUTO_NORMAL);
+
+  glPolygonMode( GL_FRONT_AND_BACK, GL_FILL);
+
+
+  glDisable (GL_COLOR_MATERIAL);
+  glDisable( GL_TEXTURE_2D );
+  glEnable (GL_TEXTURE_CUBE_MAP);
+
+
+  glBindTexture(GL_TEXTURE_2D, g_textureID);
+
+  glEnable( GL_T );
+  glEnable( GL_S );
+  glEnable( GL_R );
+  glEnable(GL_TEXTURE_GEN_S);
+  glEnable(GL_TEXTURE_GEN_T);
+  glEnable(GL_TEXTURE_GEN_R);
+
+  glTexGeni( GL_S, GL_TEXTURE_GEN_MODE, GL_REFLECTION_MAP );
+  glTexGeni( GL_T, GL_TEXTURE_GEN_MODE, GL_REFLECTION_MAP );
+  glTexGeni( GL_R, GL_TEXTURE_GEN_MODE, GL_REFLECTION_MAP );
+
+//  glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_DECAL);
+
+#if 1
+  glBindTexture(GL_TEXTURE_CUBE_MAP_POSITIVE_X, g_textureID);
+  glBindTexture(GL_TEXTURE_CUBE_MAP_NEGATIVE_X, g_textureID);
+  glBindTexture(GL_TEXTURE_CUBE_MAP_POSITIVE_Y, g_textureID);
+  glBindTexture(GL_TEXTURE_CUBE_MAP_NEGATIVE_Y, g_textureID);
+  glBindTexture(GL_TEXTURE_CUBE_MAP_POSITIVE_Z, g_textureID);
+  glBindTexture(GL_TEXTURE_CUBE_MAP_NEGATIVE_Z, g_textureID);
+#endif
+
+  glEnable( GL_TEXTURE_CUBE_MAP);
+#endif
+
+
+  
+
+
+
+  setMaterial();
+
+  glPushMatrix();
+
+  glBegin( GL_TRIANGLE_STRIP);
+
+
+  //glTexParameteri(GL_TEXTURE_CUBE_MAP_EXT, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  //glTexParameteri(GL_TEXTURE_CUBE_MAP_EXT, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  for( int i = 0; i < ui_ShapeCount * 3; i++ ) {
+    glVertex3f(
+        arr_Vertices[ i ].position.x,
+        arr_Vertices[ i ].position.y,
+        arr_Vertices[ i ].position.z
+    );
+    glNormal3f(
+        arr_Vertices[ i ].position.x,
+        arr_Vertices[ i ].position.y,
+        arr_Vertices[ i ].position.z
+    );
+  }
+
+
+  glPopMatrix();
+
+#if 0
+  glm::vec3 e = normalize( vec3( modelViewMatrix * p ) );
+  glm::vec3 n = normalize( normalMatrix * normal );
+
+  glm::vec3 r = reflect( e, n );
+#endif 
+  glEnd();
+
+  glDisable(GL_TEXTURE_GEN_S);
+  glDisable(GL_TEXTURE_GEN_T);
+  glDisable(GL_TEXTURE_GEN_R);
+
+  glFlush();
+
+
+}
+
+
+
+
+
+
+
+
+
+
+
 GLfloat ambientLightGlobal[] = {0.2f, 0.2f, 0.2f, 1.0f};
-GLfloat lightPos[] ={100.0, 150.0, -10000, 0.0};
-GLfloat ambientLight[] = {0.0f, 0.3f, 0.0f, 1.0f};
+GLfloat lightPos[] ={100.0, 150.0, 100.0, 0.0};
+GLfloat ambientLight[] = {0.3f, 0.3f, 0.3f, 1.0f};
 GLfloat diffuseLight[] = {0.8f, 0.8f, 0.8f, 1.0f};
 GLfloat specularLight[] = {0.9f, 0.9f, 0.9f, 1.0f};
 
@@ -264,19 +624,17 @@ void setLight()
   // Global ambient
   glLightfv( GL_LIGHT0, GL_AMBIENT, ambientLight );
 
-#if 0
   // Normalize the light. Note, only needs must be done once.
   {
     float sum = 0.0;
     for( int i = 0; i < 3; i++ ) {
-      sum += lightPos[i];
+      sum += abs(lightPos[i]);
     }
 
     for( int i = 0; i < 3; i++ ) {
       lightPos[i] = lightPos[i] / sum;
     }
   }
-#endif
 
   // Light position
   glLightfv( GL_LIGHT0, GL_POSITION, lightPos );
@@ -297,7 +655,7 @@ void display()
   glLoadIdentity();                  // Initialize to the identity
 
   glTranslatef( HP_XMID, HP_YMID, 0.0 );               // Translate rotation center from origin
-  glRotatef( g_angle, g_rotX, g_rotY, g_rotZ );
+  glRotatef( g_angle, g_rotX, g_rotY, g_rotZ );       // Rotate the whole world...
   glTranslatef( -HP_XMID, -HP_YMID, 0.0 );            // Translate rotation center to origin
 
   //  glMultMatrixf( mo );
@@ -305,15 +663,14 @@ void display()
 
   glPopMatrix();
 
-  //setLight();
   glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
   glLightModelfv( GL_LIGHT_MODEL_AMBIENT, ambientLightGlobal );
 
   glEnable( GL_DEPTH_TEST );
   glEnable( GL_NORMALIZE );
-  //glEnable( GL_LIGHTING );
-  //glEnable( GL_LIGHT0 );
+  glEnable( GL_LIGHTING );
+  glEnable( GL_LIGHT0 );
   glShadeModel( GL_FLAT );
   glEnable( GL_COLOR_MATERIAL );
 
@@ -324,7 +681,26 @@ void display()
   glMatrixMode( GL_PROJECTION );
   glLoadIdentity();
   setCamera();
-	g_pPlayfield->draw();
+  setLight();
+  g_pPlayfield->draw();
+
+  //glTranslatef( g_xpos - 1.0, g_ypos - 1.0, 4.0 );
+  // TEMP CODE; REFACTOR AND MOVE
+  {
+#if 0
+    glPushMatrix();
+    glLoadIdentity();
+    glMatrixMode( GL_MODELVIEW );
+    glLoadIdentity();
+    glTranslatef( g_xpos, g_ypos, g_pPlayfield->getHeightAt( HP_XMID, HP_YMID ) + 1 );
+    glPopMatrix();
+    glMatrixMode( GL_PROJECTION );
+    glLoadIdentity();
+    setCamera();
+#endif
+
+    drawSphere();
+  }
 
   // Flush the pipeline, swap the buffers
   glFlush();
@@ -337,7 +713,6 @@ void initGlobalMatrix()
 {
   memset( mo, 0, sizeof( mo ) );
   mo[0]=mo[5]=mo[10]=mo[15]=1;
-  glutPostRedisplay();
 }
 
 // updateGlobalMatrix
@@ -380,32 +755,17 @@ void keyboard( unsigned char key, int x, int y )
       break;
 
     case 'c':
-			g_pPlayfield->setParam( 0, 0 );
-			break;
+      g_pPlayfield->setParam( 0, 0 );
+      break;
     case 'g':
-			g_pPlayfield->setParam( 0, 1 );
-			break;
-
-    case '1':
-      updateGlobalMatrix( -10.0, 1,0,0 );
-      break;
-    case '2':
-      updateGlobalMatrix( 10.0, 1,0,0 );
+      g_pPlayfield->setParam( 0, 1 );
       break;
 
-    case '3':
-      updateGlobalMatrix( -10.0, 0,1,0 );
-      break;
-    case '4':
-      updateGlobalMatrix( 10.0, 0,1,0 );
-      break;
+    case ' ':
+      g_velTar = 0;
+      //g_xvel = 0;
+      //g_yvel = 0;
 
-    case '5':
-      updateGlobalMatrix( -10.0, 0,0,1 );
-      break;
-    case '6':
-      updateGlobalMatrix( 10.0, 0,0,1 );
-      break;
     default:
       break;
   }
@@ -421,27 +781,27 @@ void specialKeys( int key, int x, int y )
 {
   switch( key ) {
     case GLUT_KEY_DOWN:
-      g_velTar += VEL_DEFAULT;
+      g_velTar += VEL_INC;
       if( g_velTar > VEL_MAX )
       {
         g_velTar = VEL_MAX;
       }
 #ifdef DEBUG_STEPPOS
       // TEMP CODE; REMOVE
-      g_xpos += sin( g_xyDir ) * VEL_DEFAULT;
-      g_ypos += cos( g_xyDir ) * VEL_DEFAULT;
+      g_xpos += sin( g_xyDir ) * VEL_INC;
+      g_ypos += cos( g_xyDir ) * VEL_INC;
 #endif
       break;
     case GLUT_KEY_UP:
-      g_velTar += -VEL_DEFAULT;
+      g_velTar += -VEL_INC;
       if( g_velTar < -VEL_MAX )
       {
         g_velTar = -VEL_MAX;
       }
 #ifdef DEBUG_STEPPOS
       // TEMP CODE; REMOVE
-      g_xpos -= sin( g_xyDir ) * VEL_DEFAULT;
-      g_ypos -= cos( g_xyDir ) * VEL_DEFAULT;
+      g_xpos -= sin( g_xyDir ) * VEL_INC;
+      g_ypos -= cos( g_xyDir ) * VEL_INC;
 #endif
       break;
     case GLUT_KEY_LEFT:

@@ -14,6 +14,8 @@
 
 #include <memory.h>
 
+#include <stdio.h>
+
 HeightPlane::HeightPlane()
 {
   m_param[0] = 0;
@@ -30,7 +32,6 @@ HeightPlane::~HeightPlane()
 //
 bool HeightPlane::initHeightPlane()
 {
-
   bool bRet = true;
   int x, y;
   double theta = 0;
@@ -108,6 +109,41 @@ bool HeightPlane::initHeightPlane()
   }
   return bRet;
 }
+
+
+// TODO: Move this to a vector math lib
+glm::vec3 crossProduct( glm::vec3 v1,  glm::vec3 v2 )
+{
+  glm::vec3 cpv;
+
+  cpv.x = v1.y * v2.z - v2.y * v1.z;
+  cpv.y = v2.x * v1.z - v1.x * v2.z;
+  cpv.z = v1.x * v2.y - v2.x * v1.y;
+
+  return cpv;
+}
+
+// TODO: Move this to a vector math lib
+// Normalize a vec 
+glm::vec3 normalizeVec( glm::vec3 v )
+{
+  glm::vec3 nv;
+  float sum = 0.0;
+
+  sum = abs(v.x) + abs(v.y) + abs(v.z);
+  nv.x = v.x / sum;
+  nv.y = v.y / sum;
+  nv.z = v.z / sum;
+
+  return nv;
+}
+
+/*
+float HeightPlane::getCrossing( const float fx, const float fy, const float fz )
+{
+
+}
+*/
 
 
 //#define DEBUG_HP
@@ -190,6 +226,63 @@ float HeightPlane::getHeightAt( const float fx, const float fy )
   }
   return h;
 }
+
+glm::vec3 HeightPlane::getNormalAt( const float fx, const float fy )
+{
+  int x = (int) (fx / HP_GRIDSIZE);
+  int y = (int) (fy / HP_GRIDSIZE);
+  glm::vec3 cp = { 0, 0, 0 };
+  if( x >= 0 && x < HP_XSIZE - 1 ) {
+    if( y >= 0 && y < HP_YSIZE - 1 ) {
+      // Find which triangular half of the grid square { fx, fy } is in (top/right or bottom/left)
+      float ix, iy;
+      float ax, ay;
+      ix = fmod( fx, HP_GRIDSIZE );
+      iy = fmod( fy, HP_GRIDSIZE );
+
+      //assert(ix >= 0.0 && ix < HP_GRIDSIZE);
+      //assert(iy >= 0.0 && iy < HP_GRIDSIZE);
+
+			ax = fx - ix;
+			ay = fy - iy;
+
+      if( ix > ( HP_GRIDSIZE - iy ) ) {
+        //iy = HP_GRIDSIZE - iy;
+        // top/left
+        // mean z
+        glm::vec3 v12 = {
+          HP_GRIDSIZE,
+          0.0,
+          m_heightPlane[ x + 1 ][ y ] - m_heightPlane[ x ][ y ]
+        };
+        glm::vec3 v13 = {
+          0.0,
+          HP_GRIDSIZE,
+          m_heightPlane[ x ][ y + 1 ] - m_heightPlane[ x ][ y ]
+        };
+        cp = normalizeVec(crossProduct( v12, v13 ));
+
+        printf("TL");
+      } else {
+        // bottom/right
+        glm::vec3 v42 = {
+          0,
+          -HP_GRIDSIZE,
+          m_heightPlane[ x + 1 ][ y ] - m_heightPlane[ x + 1 ][ y + 1 ]
+        };
+        glm::vec3 v43 = {
+          -HP_GRIDSIZE,
+          0,
+          m_heightPlane[ x ][ y + 1 ] - m_heightPlane[ x + 1 ][ y + 1 ]
+        };
+        cp = normalizeVec( crossProduct( v43, v42 ) );
+        printf("BR");
+      }
+    }
+  }
+  return cp;
+}
+
 
 // calcZ
 // Use Barycentric coordinate algorithm to derive z from y on heightplane triangle

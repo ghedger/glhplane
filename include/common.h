@@ -9,11 +9,13 @@
 #define HP_XMID_GRID (HP_XSIZE / 2)
 #define HP_YMID_GRID (HP_YSIZE / 2)
 
+#define FRICTION_COEFF 0.0012
+
 // Motion
 #define TURN_DAMPER 12
 #define VEL_DAMPER 16
-#define VEL_DEFAULT 0.05
-#define VEL_MAX 0.85
+#define VEL_INC 0.1
+#define VEL_MAX 0.7
 
 
 
