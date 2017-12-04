@@ -16,6 +16,8 @@
 
 #include <stdio.h>
 
+using namespace std;
+
 HeightPlane::HeightPlane()
 {
   m_param[0] = 0;
@@ -46,8 +48,8 @@ bool HeightPlane::initHeightPlane()
           sqrt(
             pow( ( float ) x - ( float ) HP_XMID_GRID, 2 ) +
             pow( ( float ) y - ( float ) HP_YMID_GRID, 2 )
-          )
-      );
+            )
+          );
       if( atten < 1 ) {
         atten = 1;
       }
@@ -69,27 +71,27 @@ bool HeightPlane::initHeightPlane()
       //atten = ( float ) HP_XMID * 1.415 - atten;
 
       h = sin( x * ( M_PI * 2 ) / HP_XSIZE ) * 30 +
-          sin( y * ( M_PI * 2 ) / HP_YSIZE ) * 30;
+        sin( y * ( M_PI * 2 ) / HP_YSIZE ) * 30;
 
       h += sin( x * ( M_PI * 2 ) / HP_XSIZE * 2 ) * 16 +
-          sin( y * ( M_PI * 2 ) / HP_YSIZE * 2 ) * 16;
+        sin( y * ( M_PI * 2 ) / HP_YSIZE * 2 ) * 16;
 
       h += sin( x * ( M_PI * 2 ) / HP_XSIZE * 4 ) * 8 +
-          sin( y * ( M_PI * 2 ) / HP_YSIZE * 4 ) * 8;
+        sin( y * ( M_PI * 2 ) / HP_YSIZE * 4 ) * 8;
 
       h += sin( x * ( M_PI * 2 ) / HP_XSIZE * 8 ) * 3 +
-          sin( y * ( M_PI * 2 ) / HP_YSIZE * 8 ) * 3;
+        sin( y * ( M_PI * 2 ) / HP_YSIZE * 8 ) * 3;
 
 
 
       /*
-      h = sin( theta * (M_PI * 2 / HP_XSIZE) * 6) * 1 + 
-        sin( theta * (M_PI * 2 / HP_XSIZE) * 4.23 ) * 1.2;
-        sin( theta * (M_PI * 2 / HP_XSIZE) * 9.1 ) * 1;
-      h += sin( y * (M_PI * 2 / HP_XSIZE) * 5.3) * 2.1 +
-        sin( y * (M_PI * 2 / HP_XSIZE) * 4.1) * 3;
-        sin( y * (M_PI * 2 / HP_XSIZE) * 11.1) * 1;
-      */
+         h = sin( theta * (M_PI * 2 / HP_XSIZE) * 6) * 1 + 
+         sin( theta * (M_PI * 2 / HP_XSIZE) * 4.23 ) * 1.2;
+         sin( theta * (M_PI * 2 / HP_XSIZE) * 9.1 ) * 1;
+         h += sin( y * (M_PI * 2 / HP_XSIZE) * 5.3) * 2.1 +
+         sin( y * (M_PI * 2 / HP_XSIZE) * 4.1) * 3;
+         sin( y * (M_PI * 2 / HP_XSIZE) * 11.1) * 1;
+         */
       //h *= 10;
       //h *= atten;
 
@@ -112,7 +114,7 @@ bool HeightPlane::initHeightPlane()
 
 
 // TODO: Move this to a vector math lib
-glm::vec3 crossProduct( glm::vec3 v1,  glm::vec3 v2 )
+glm::vec3 crossProduct( const glm::vec3 v1,  const glm::vec3 v2 )
 {
   glm::vec3 cpv;
 
@@ -138,12 +140,149 @@ glm::vec3 normalizeVec( glm::vec3 v )
   return nv;
 }
 
-/*
-float HeightPlane::getCrossing( const float fx, const float fy, const float fz )
-{
 
+// TODO: Move this to a vector math lib
+float dotProduct( glm::vec3& u, glm::vec3& v )
+{
+  return( u.x * v.x + u.y * v.y + u.z * v.z );
 }
-*/
+
+#define dot(u,v)   ((u).x * (v).x + (u).y * (v).y + (u).z * (v).z)
+// norm = length of vector
+#define norm(v)    sqrt(dot(v,v))  
+// distance = norm of difference
+#define d(u,v)     norm(u-v)       
+
+// TODO: Move this to a vector math lib
+float closestPointOnPlane( const glm::vec3 v0, const glm::vec3 v1, glm::vec3& origin, glm::vec3& p, glm::vec3 *cp, glm::vec3 *pn )
+{
+  glm::vec3 closest;
+  glm::vec3 n;
+  n = normalizeVec(crossProduct( v0, v1 ));
+
+  float     sb, sn, sd;
+  glm::vec3 diff;
+  diff.x = p.x - origin.x;
+  diff.y = p.y - origin.y;
+  diff.z = p.z - origin.z;
+
+  sn = -(dot( n, diff ));
+
+  sd = dot( n, n );
+  sb = sn / sd;
+
+  closest.x = p.x + (n.x * sb);
+  closest.y = p.y + (n.y * sb);
+  closest.z = p.z + (n.z * sb);
+
+  cp->x = closest.x;
+  cp->y = closest.y;
+  cp->z = closest.z;
+
+  diff.x = p.x - closest.x;
+  diff.y = p.y - closest.y;
+  diff.z = p.z - closest.z;
+
+  float sign = dotProduct( n, diff );
+  *pn = n;
+
+  float dp = abs(dotProduct( p, diff ));
+
+  return sqrt( dp ) * (sign > 0 ? 1 : -1);
+}
+
+bool HeightPlane::getColdetAdj( const float fx, const float fy, const float fz, const float radius, glm::vec3 *ap )
+{
+  bool bRet = false;
+  int x = (int) (fx / HP_GRIDSIZE);
+  int y = (int) (fy / HP_GRIDSIZE);
+  glm::vec3 cp = { fx, fy, fz };
+  if( x >= 0 && x < HP_XSIZE - 1 ) {
+    if( y >= 0 && y < HP_YSIZE - 1 ) {
+      // Find which triangular half of the grid square { fx, fy } is in (top/right or bottom/left)
+      float ix, iy;
+      float ax, ay;
+      ix = fmod( fx, HP_GRIDSIZE );
+      iy = fmod( fy, HP_GRIDSIZE );
+
+      //assert(ix >= 0.0 && ix < HP_GRIDSIZE);
+      //assert(iy >= 0.0 && iy < HP_GRIDSIZE);
+
+      ax = fx - ix;
+      ay = fy - iy;
+
+      glm::vec3 n = {0,0,0};
+      glm::vec3 p = { fx, fy, fz };
+      glm::vec3 origin;
+      glm::vec3 v0;
+      glm::vec3 v1;
+      if( ix > ( HP_GRIDSIZE - iy ) ) {
+        // top/left
+        origin = { fx - ix, fy - iy, m_heightPlane[ x ][ y ] };
+        v1 = { HP_GRIDSIZE, 0.0, m_heightPlane[ x + 1 ][ y ] - m_heightPlane[ x ][ y ] };
+        v0 = { 0.0, HP_GRIDSIZE, m_heightPlane[ x ][ y + 1 ] - m_heightPlane[ x ][ y ] };
+      } else {
+        // bottom/right
+        origin = {  ( fx - ix ) + HP_GRIDSIZE, ( fy - iy ) + HP_GRIDSIZE, m_heightPlane[ x + 1 ][ y + 1 ] };
+        v0 = { 0, -HP_GRIDSIZE, m_heightPlane[ x + 1 ][ y ] - m_heightPlane[ x + 1 ][ y + 1 ] };
+        v1 = { -HP_GRIDSIZE, 0, m_heightPlane[ x ][ y + 1 ] - m_heightPlane[ x + 1 ][ y + 1 ] };
+      }
+
+      float dn = closestPointOnPlane( v0, v1, origin, p, &cp, &n );
+      glm::vec3 surfacePoint = { 
+        fx + ( n.x * radius ),
+        fy + ( n.y * radius ),
+        fz + ( n.z * radius )
+      }; 
+      // Now that we have the closest point on the plane to the center,
+      // we must call again with the surface so we can an appropriate distance.
+      dn = closestPointOnPlane( v0, v1, origin, surfacePoint, &cp, &n );
+      if( dn > 0 && -sqrt( pow(cp.x - fx, 2) + pow(cp.y - fy, 2) + pow(cp.z - fz, 2)) < radius ) {
+        ap->x = cp.x - ( n.x * radius ); 
+        ap->y = cp.y - ( n.y * radius ); 
+        ap->z = cp.z - ( n.z * radius ); 
+        bRet = true;
+        printf("b");
+      }
+#if 1
+      printf("BR { %2.2f %2.2f %2.2f }  { %2.2f %2.2f %2.2f }  %2.2f\n", 
+          cp.x, cp.y, cp.z,
+          n.x, n.y, n.z,
+          dn
+          );
+#endif
+    }
+  }
+  return bRet;
+}
+
+#if 0
+// TEST CODE; REMOVE
+v42.x =  140; 
+v42.y =  80; 
+v42.z = 10; 
+
+v43.x = -10; 
+v43.y =  30; 
+v43.z = 12; 
+
+origin.x = v42.x;
+origin.y = v42.y;
+origin.z = v42.z;
+
+p.x = 19;
+p.y = 32;
+p.z = 1; 
+#endif
+
+
+
+/*
+   float HeightPlane::getCrossing( const float fx, const float fy, const float fz )
+   {
+
+   }
+   */
 
 
 //#define DEBUG_HP
@@ -171,8 +310,8 @@ float HeightPlane::getHeightAt( const float fx, const float fy )
       //assert(ix >= 0.0 && ix < HP_GRIDSIZE);
       //assert(iy >= 0.0 && iy < HP_GRIDSIZE);
 
-			ax = fx - ix;
-			ay = fy - iy;
+      ax = fx - ix;
+      ay = fy - iy;
 
       // What's the vector, Victor?
       //
@@ -243,8 +382,8 @@ glm::vec3 HeightPlane::getNormalAt( const float fx, const float fy )
       //assert(ix >= 0.0 && ix < HP_GRIDSIZE);
       //assert(iy >= 0.0 && iy < HP_GRIDSIZE);
 
-			ax = fx - ix;
-			ay = fy - iy;
+      ax = fx - ix;
+      ay = fy - iy;
 
       if( ix > ( HP_GRIDSIZE - iy ) ) {
         //iy = HP_GRIDSIZE - iy;
@@ -262,7 +401,6 @@ glm::vec3 HeightPlane::getNormalAt( const float fx, const float fy )
         };
         cp = normalizeVec(crossProduct( v12, v13 ));
 
-        printf("TL");
       } else {
         // bottom/right
         glm::vec3 v42 = {
@@ -276,12 +414,13 @@ glm::vec3 HeightPlane::getNormalAt( const float fx, const float fy )
           m_heightPlane[ x ][ y + 1 ] - m_heightPlane[ x + 1 ][ y + 1 ]
         };
         cp = normalizeVec( crossProduct( v43, v42 ) );
-        printf("BR");
       }
     }
   }
   return cp;
 }
+
+
 
 
 // calcZ
@@ -302,17 +441,17 @@ float HeightPlane::calcZ(const glm::vec3 p1, const glm::vec3 p2, const glm::vec3
   float l3 = 1.0f - l1 - l2;
 
 
-	float z = l1 * p1.z + l2 * p2.z + l3 * p3.z;
+  float z = l1 * p1.z + l2 * p2.z + l3 * p3.z;
 #ifdef DEBUG_BARYCENTRIC
   printf("{%2.2f %2.2f %2.2f} {%2.2f %2.2f %2.2f} {%2.2f %2.2f %2.2f} [%2.2f %2.2f %2.2f] %2.2f %2.2f  %2.4f\n", 
-			p1.x, p1.y, p1.z,
-			p2.x, p2.y, p2.z,
-			p3.x, p3.y, p3.z,
-			l1, l2, l3,
-			x, y, z 
-	);
+      p1.x, p1.y, p1.z,
+      p2.x, p2.y, p2.z,
+      p3.x, p3.y, p3.z,
+      l1, l2, l3,
+      x, y, z 
+      );
 #endif
-	return z;
+  return z;
 
   //return l1 * p1.z + l2 * p2.z + l3 * p3.z;
 }

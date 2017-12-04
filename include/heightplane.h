@@ -18,6 +18,7 @@ class HeightPlane : public GameObject
 
     virtual float getHeightAt( const float x, const float y );
     glm::vec3 getNormalAt( const float x, const float y );
+    bool getColdetAdj( const float x, const float y, const float z, const float radius, glm::vec3 *ap);
 
     virtual void setParam( const int paramIdx, const int val )
     {

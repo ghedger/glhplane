@@ -43,6 +43,11 @@ float g_xyDirTar;
 float g_vel;
 float g_velTar;
 
+// TODO: This is crude, for debugging only.  Need a full xyz direction for movement
+float g_zvel;
+float g_zveli;
+
+
 // Cartesian coordinates used for sliding
 float g_xvel;
 float g_yvel;
@@ -81,6 +86,7 @@ void specialKeys( int key, int x, int y );
 void initSphere();
 
 // Simple physics, using PID control loop to simulate cumulative gravity and friction.
+// TODO: This needs to be refactored into its own physics class
 void updatePhysics()
 {
   // Get the normalized slip-slidin' vector; discard the z component and apply
@@ -117,13 +123,14 @@ void updatePhysics()
 
   g_xvel = pv[0];
   g_yvel = pv[1];
+//  g_zvel = -sqrt( pow(g_xvel, 2), pow(g_yvel,2) ) * nv.z;
 
 
   // Apply Friction
   g_xvel = g_xvel * (1.0 - FRICTION_COEFF);
   g_yvel = g_yvel * (1.0 - FRICTION_COEFF);
-  printf(" pv:%1.3lf pi:%1.3lf e:%1.3lf dp:%1.3lf  %1.3lf", pv[0], pi[0], e[0], dp[0], nv.x);
-  printf("\n");
+  //printf(" pv:%1.3lf pi:%1.3lf e:%1.3lf dp:%1.3lf  %1.3lf", pv[0], pi[0], e[0], dp[0], nv.x);
+  //printf("\n");
   //printf( "{ %2.2f %2.2f %2.2f }  { %2.3f  %2.3f }\n",nv.x, nv.y, nv.z, g_xvel, g_yvel );
 }
 
@@ -143,6 +150,7 @@ void updatePosition()
 
   g_xpos += g_xvel;
   g_ypos += g_yvel;
+  g_zpos += g_zvel;
 
 #ifndef DEBUG_STEPPOS
   //g_xpos += sin( g_xyDir ) * g_vel + g_xvel;
@@ -164,6 +172,7 @@ void updatePosition()
       }
     }
   }
+
 
   // Clamp position
   if( g_xpos > ( HP_XSIZE - 2 ) * HP_GRIDSIZE ) {
@@ -189,8 +198,23 @@ void updatePosition()
 
   // Only get the z position AFTER all the x/y position update
   // including clamping is completed.
-  g_zpos = g_pPlayfield->getHeightAt( g_xpos, g_ypos );
-
+  //g_zpos = g_pPlayfield->getHeightAt( g_xpos, g_ypos );
+  // coldet
+  glm::vec3 adj;
+  if( g_pPlayfield->getColdetAdj( g_xpos, g_ypos, g_zpos, 1.2, &adj ) ) {
+    printf("-ADJUSTING: { %2.2f %2.2f %2.2f }\n", g_xpos, g_ypos, g_zpos );
+    g_xpos = adj.x;
+    g_ypos = adj.y;
+    g_zpos = adj.z - 0.001;
+    g_zvel = -0.05;
+    g_zveli = 0.0;
+    printf("+ADJUSTING: { %2.2f %2.2f %2.2f }\n", g_xpos, g_ypos, g_zpos );
+  } else {
+    // Apply gravity
+    g_zveli -= 0.005;
+    g_zvel += g_zveli;
+  }
+ 
   // Update direction
   g_xyDir += ( g_xyDirTar - g_xyDir ) / TURN_DAMPER;
 
@@ -249,6 +273,13 @@ void init()
     g_velTar = 0.0;
     g_xvel = 0.0;
     g_yvel = 0.0;
+
+    // TODO: This is crude and will need to be replaced by a proper 3D vector later on.  This
+    // is just to debug collsiion
+    g_zvel = 0.0;
+    g_zveli = 0.0;
+     
+
   } else {
     // TODO: Exit program with error
   }
@@ -505,7 +536,31 @@ void drawSphere()
 #if 1
 // ENVIRONMENT MAPPING DOESN'T WORK!!!
 
-  glTranslatef( g_xpos, g_ypos, g_pPlayfield->getHeightAt( g_xpos, g_ypos ) + 1.0 );
+
+
+#if 0
+  glPushMatrix();
+
+  // Rotate the image
+  glMatrixMode( GL_MODELVIEW );             // Current matrix affects objects positions
+  glLoadIdentity();                         // Initialize to the identity
+
+  glTranslatef( HP_XMID, HP_YMID, 0.0 );               // Translate rotation center from origin
+  glTranslatef( -HP_XMID, -HP_YMID, 0.0 );            // Translate rotation center to origin
+
+
+  glRotatef( 1.0, 1.0, 0.0, 0.0 );
+  glMultMatrixf( mo );
+  glGetFloatv( GL_MODELVIEW_MATRIX, mo );
+
+  glPopMatrix();
+#endif
+
+
+
+//  glRotatef( 1.1, 1.0, 0.0, 0.0 );       // Rotate the whole world...
+  glTranslatef( g_xpos, g_ypos, g_zpos /*g_pPlayfield->getHeightAt( g_xpos, g_ypos ) + 1.0*/ );
+
   // glMatrixMode( GL_MODELVIEW);
 
   glMatrixMode(GL_TEXTURE);

@@ -9,7 +9,7 @@
 #define HP_XMID_GRID (HP_XSIZE / 2)
 #define HP_YMID_GRID (HP_YSIZE / 2)
 
-#define FRICTION_COEFF 0.0012
+#define FRICTION_COEFF 0.0052
 
 // Motion
 #define TURN_DAMPER 12
