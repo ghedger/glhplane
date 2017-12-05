@@ -32,13 +32,19 @@ class HeightPlane : public GameObject
 
     virtual float getXMid() { return HP_XMID; };
     virtual float getYMid() { return HP_YMID; };
+    virtual float *getVertices() { return m_vertices; };
+    virtual int getVerticeTot() { return m_verticeTot; };
+    virtual int getVerticeBufSize() { return ( int ) ( getVerticeTot() * 5 * sizeof( float ) ); };
 
   protected:
     bool initHeightPlane();
+    double heightFn(double, double);
 
     float m_heightPlane[ HP_XSIZE ][ HP_YSIZE ];
     float calcZ(const glm::vec3 p1, const glm::vec3 p2, const glm::vec3 p3, const float x, const float y);
 
     int m_param[ HP_MAX_PARAMS ];
+    float *m_vertices;
+    int m_verticeTot;
 };
 

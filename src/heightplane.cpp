@@ -11,9 +11,8 @@
 
 #include <unistd.h>
 #include <math.h>
-
+#include <iostream>
 #include <memory.h>
-
 #include <stdio.h>
 
 using namespace std;
@@ -24,11 +23,37 @@ HeightPlane::HeightPlane()
   m_param[1] = 0;
   m_param[2] = 0;
   m_param[3] = 0;
+
+  m_vertices = new float[ VBO_BUFSIZE ];
+  memset( m_vertices, 0, sizeof( float ) * VBO_BUFSIZE );
+
 }
 
 HeightPlane::~HeightPlane()
 {
+  m_verticeTot = 0;
+  if( m_vertices ) {
+    delete( m_vertices );
+    m_vertices = NULL;
+  }
 }
+
+double HeightPlane::heightFn( double x, double y )
+{
+  float h = sin( x * ( M_PI * 2 ) / HP_XSIZE ) * 30 +
+    sin( y * ( M_PI * 2 ) / HP_YSIZE ) * 30;
+
+  h += sin( x * ( M_PI * 2 ) / HP_XSIZE * 2 ) * 16 +
+    sin( y * ( M_PI * 2 ) / HP_YSIZE * 2 ) * 16;
+
+  h += sin( x * ( M_PI * 2 ) / HP_XSIZE * 4 ) * 8 +
+    sin( y * ( M_PI * 2 ) / HP_YSIZE * 4 ) * 8;
+
+  h += sin( x * ( M_PI * 2 ) / HP_XSIZE * 8 ) * 3 +
+    sin( y * ( M_PI * 2 ) / HP_YSIZE * 8 ) * 3;
+  return h;
+}
+
 
 // initHeightPlane
 //
@@ -36,65 +61,15 @@ bool HeightPlane::initHeightPlane()
 {
   bool bRet = true;
   int x, y;
-  double theta = 0;
   double atten = 0;
   double attenPrev;
+  float texIdx = 0.0;
+  int i = 0;
+  double h = 0;
+
   for( x = 0; x < HP_XSIZE; x++ ) {
     for( y = 0; y < HP_YSIZE; y++ ) {
-      double h;
-      // Apply attenuation function over all
-      attenPrev = atten;
-      atten = abs(
-          sqrt(
-            pow( ( float ) x - ( float ) HP_XMID_GRID, 2 ) +
-            pow( ( float ) y - ( float ) HP_YMID_GRID, 2 )
-            )
-          );
-      if( atten < 1 ) {
-        atten = 1;
-      }
-
-      //atten /= HP_XMID;
-
-      //atten = 0.5 - pow ( 1 / ( 1 + pow(atten, -2 ) ), 25 );
-      atten = 1 - pow ( 1 / ( 1 + pow(atten, -1 ) ), 30);
-      atten -= 0.25;
-
-      if( atten < 0 ) {
-        atten = 0;
-      }
-
-      // Simple smoothing function
-      atten = (atten + attenPrev) / 2;
-
-      //atten = ( float ) (HP_XMID / pow(atten, 2) * atten);
-      //atten = ( float ) HP_XMID * 1.415 - atten;
-
-      h = sin( x * ( M_PI * 2 ) / HP_XSIZE ) * 30 +
-        sin( y * ( M_PI * 2 ) / HP_YSIZE ) * 30;
-
-      h += sin( x * ( M_PI * 2 ) / HP_XSIZE * 2 ) * 16 +
-        sin( y * ( M_PI * 2 ) / HP_YSIZE * 2 ) * 16;
-
-      h += sin( x * ( M_PI * 2 ) / HP_XSIZE * 4 ) * 8 +
-        sin( y * ( M_PI * 2 ) / HP_YSIZE * 4 ) * 8;
-
-      h += sin( x * ( M_PI * 2 ) / HP_XSIZE * 8 ) * 3 +
-        sin( y * ( M_PI * 2 ) / HP_YSIZE * 8 ) * 3;
-
-
-
-      /*
-         h = sin( theta * (M_PI * 2 / HP_XSIZE) * 6) * 1 + 
-         sin( theta * (M_PI * 2 / HP_XSIZE) * 4.23 ) * 1.2;
-         sin( theta * (M_PI * 2 / HP_XSIZE) * 9.1 ) * 1;
-         h += sin( y * (M_PI * 2 / HP_XSIZE) * 5.3) * 2.1 +
-         sin( y * (M_PI * 2 / HP_XSIZE) * 4.1) * 3;
-         sin( y * (M_PI * 2 / HP_XSIZE) * 11.1) * 1;
-         */
-      //h *= 10;
-      //h *= atten;
-
+      h = heightFn(x, y);
       if( x > 0 ) {
         h += 100.0 / (HP_XSIZE - x );
         h += 100.0 / x;
@@ -104,11 +79,70 @@ bool HeightPlane::initHeightPlane()
         h += 100.0 / y;
       }
 
+      m_heightPlane[ x ][ y ] = h * 0.1;
 
-      m_heightPlane[ x ][ y ] = h;
-      theta += 0.011;
+      if( x == HP_XSIZE - 24 && y == HP_YSIZE - 24 )
+      {
+        h = 300;
+      }
+
+      if(
+          !(
+            ( !x ) ||
+            ( !y ) ||
+            (HP_XSIZE - 1 ) == x ||
+            (HP_YSIZE - 1 ) == y
+           )
+        ) {
+
+        m_vertices[ i++ ] = (x * HP_GRIDSIZE) - HP_XMID;
+        m_vertices[ i++ ] = (y * HP_GRIDSIZE) - HP_YMID;
+        m_vertices[ i++ ] = m_heightPlane[ x - 1 ][ y - 1 ];
+        m_vertices[ i++ ] = 0.0;
+        m_vertices[ i++ ] = 0.0;
+
+        m_vertices[ i++ ] = (x * HP_GRIDSIZE) - HP_XMID;
+        m_vertices[ i++ ] = (y * HP_GRIDSIZE) - HP_YMID + HP_GRIDSIZE;
+        m_vertices[ i++ ] = m_heightPlane[ x - 1 ][ y ];
+        m_vertices[ i++ ] = 0.0;
+        m_vertices[ i++ ] = texIdx;
+
+        m_vertices[ i++ ] = (x * HP_GRIDSIZE) - HP_XMID + HP_GRIDSIZE;
+        m_vertices[ i++ ] = (y * HP_GRIDSIZE) - HP_YMID + HP_GRIDSIZE;
+        m_vertices[ i++ ] = m_heightPlane[ x ][ y ];
+        m_vertices[ i++ ] = texIdx;
+        m_vertices[ i++ ] = texIdx;
+
+        m_vertices[ i++ ] = (x * HP_GRIDSIZE) - HP_XMID + HP_GRIDSIZE;
+        m_vertices[ i++ ] = (y * HP_GRIDSIZE) - HP_YMID + HP_GRIDSIZE;
+        m_vertices[ i++ ] = m_heightPlane[ x ][ y ];
+        m_vertices[ i++ ] = texIdx;
+        m_vertices[ i++ ] = texIdx;
+
+        m_vertices[ i++ ] = (x * HP_GRIDSIZE) - HP_XMID;
+        m_vertices[ i++ ] = (y * HP_GRIDSIZE) - HP_YMID;
+        m_vertices[ i++ ] = m_heightPlane[ x - 1 ][ y - 1];
+        m_vertices[ i++ ] = 0.0;
+        m_vertices[ i++ ] = 0.0;
+
+        m_vertices[ i++ ] = (x * HP_GRIDSIZE) - HP_XMID + HP_GRIDSIZE;
+        m_vertices[ i++ ] = (y * HP_GRIDSIZE) - HP_YMID;
+        m_vertices[ i++ ] = m_heightPlane[ x ][ y - 1 ];
+        m_vertices[ i++ ] = texIdx;
+        m_vertices[ i++ ] = 0.0;
+
+        if( texIdx > 0 ) {
+          texIdx = 1.0f;
+        } else {
+          texIdx = 1.0f;
+        }
+      }
     }
   }
+
+  std::cout << i << " " << i / 30 << " " << sqrt( i / 30 ) <<  std::endl;
+
+  m_verticeTot = i / 5;
   return bRet;
 }
 
