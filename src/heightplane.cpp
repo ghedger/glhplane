@@ -61,8 +61,6 @@ bool HeightPlane::initHeightPlane()
 {
   bool bRet = true;
   int x, y;
-  double atten = 0;
-  double attenPrev;
   float texIdx = 0.0;
   int i = 0;
   double h = 0;
@@ -79,12 +77,7 @@ bool HeightPlane::initHeightPlane()
         h += 100.0 / y;
       }
 
-      m_heightPlane[ x ][ y ] = h * 0.1;
-
-      if( x == HP_XSIZE - 24 && y == HP_YSIZE - 24 )
-      {
-        h = 300;
-      }
+      m_heightPlane[ x ][ y ] = h * 1.0;
 
       if(
           !(
@@ -94,40 +87,39 @@ bool HeightPlane::initHeightPlane()
             (HP_YSIZE - 1 ) == y
            )
         ) {
-
-        m_vertices[ i++ ] = (x * HP_GRIDSIZE) - HP_XMID;
-        m_vertices[ i++ ] = (y * HP_GRIDSIZE) - HP_YMID;
+        m_vertices[ i++ ] = (x * HP_GRIDSIZE) ;
         m_vertices[ i++ ] = m_heightPlane[ x - 1 ][ y - 1 ];
+        m_vertices[ i++ ] = (y * HP_GRIDSIZE) ;
         m_vertices[ i++ ] = 0.0;
         m_vertices[ i++ ] = 0.0;
 
-        m_vertices[ i++ ] = (x * HP_GRIDSIZE) - HP_XMID;
-        m_vertices[ i++ ] = (y * HP_GRIDSIZE) - HP_YMID + HP_GRIDSIZE;
+        m_vertices[ i++ ] = (x * HP_GRIDSIZE) ;
         m_vertices[ i++ ] = m_heightPlane[ x - 1 ][ y ];
+        m_vertices[ i++ ] = (y * HP_GRIDSIZE)  + HP_GRIDSIZE;
         m_vertices[ i++ ] = 0.0;
         m_vertices[ i++ ] = texIdx;
 
-        m_vertices[ i++ ] = (x * HP_GRIDSIZE) - HP_XMID + HP_GRIDSIZE;
-        m_vertices[ i++ ] = (y * HP_GRIDSIZE) - HP_YMID + HP_GRIDSIZE;
+        m_vertices[ i++ ] = (x * HP_GRIDSIZE)  + HP_GRIDSIZE;
         m_vertices[ i++ ] = m_heightPlane[ x ][ y ];
+        m_vertices[ i++ ] = (y * HP_GRIDSIZE)  + HP_GRIDSIZE;
         m_vertices[ i++ ] = texIdx;
         m_vertices[ i++ ] = texIdx;
 
-        m_vertices[ i++ ] = (x * HP_GRIDSIZE) - HP_XMID + HP_GRIDSIZE;
-        m_vertices[ i++ ] = (y * HP_GRIDSIZE) - HP_YMID + HP_GRIDSIZE;
+        m_vertices[ i++ ] = (x * HP_GRIDSIZE)  + HP_GRIDSIZE;
         m_vertices[ i++ ] = m_heightPlane[ x ][ y ];
+        m_vertices[ i++ ] = (y * HP_GRIDSIZE)  + HP_GRIDSIZE;
         m_vertices[ i++ ] = texIdx;
         m_vertices[ i++ ] = texIdx;
 
-        m_vertices[ i++ ] = (x * HP_GRIDSIZE) - HP_XMID;
-        m_vertices[ i++ ] = (y * HP_GRIDSIZE) - HP_YMID;
+        m_vertices[ i++ ] = (x * HP_GRIDSIZE) ;
         m_vertices[ i++ ] = m_heightPlane[ x - 1 ][ y - 1];
+        m_vertices[ i++ ] = (y * HP_GRIDSIZE) ;
         m_vertices[ i++ ] = 0.0;
         m_vertices[ i++ ] = 0.0;
 
-        m_vertices[ i++ ] = (x * HP_GRIDSIZE) - HP_XMID + HP_GRIDSIZE;
-        m_vertices[ i++ ] = (y * HP_GRIDSIZE) - HP_YMID;
+        m_vertices[ i++ ] = (x * HP_GRIDSIZE)  + HP_GRIDSIZE;
         m_vertices[ i++ ] = m_heightPlane[ x ][ y - 1 ];
+        m_vertices[ i++ ] = (y * HP_GRIDSIZE) ;
         m_vertices[ i++ ] = texIdx;
         m_vertices[ i++ ] = 0.0;
 
@@ -137,6 +129,25 @@ bool HeightPlane::initHeightPlane()
           texIdx = 1.0f;
         }
       }
+    }
+  }
+
+  // Offset the height plane by 1x, 1y:
+  //
+  // xxxxxxxxxxxx
+  // xxxxxxxxxxxx.
+  // xxxxxxxxxxxx.
+  //  ............
+#if 0
+  for( x = 0; x < HP_XSIZE - 1; x++ ) {
+    for( y = 0; y < HP_YSIZE - 1 ; y++ ) {
+      m_heightPlane[ x ][ y ] = m_heightPlane[ x + 1 ][ y + 1 ];
+    }
+  }
+#endif
+  for( x = HP_XSIZE - 1; x > 0; x-- ) {
+    for( y = HP_YSIZE - 1; y > 0 ; y-- ) {
+      m_heightPlane[ x ][ y ] = m_heightPlane[ x - 1 ][ y - 1 ];
     }
   }
 
@@ -235,15 +246,11 @@ bool HeightPlane::getColdetAdj( const float fx, const float fy, const float fz, 
     if( y >= 0 && y < HP_YSIZE - 1 ) {
       // Find which triangular half of the grid square { fx, fy } is in (top/right or bottom/left)
       float ix, iy;
-      float ax, ay;
       ix = fmod( fx, HP_GRIDSIZE );
       iy = fmod( fy, HP_GRIDSIZE );
 
       //assert(ix >= 0.0 && ix < HP_GRIDSIZE);
       //assert(iy >= 0.0 && iy < HP_GRIDSIZE);
-
-      ax = fx - ix;
-      ay = fy - iy;
 
       glm::vec3 n = {0,0,0};
       glm::vec3 p = { fx, fy, fz };
@@ -289,35 +296,6 @@ bool HeightPlane::getColdetAdj( const float fx, const float fy, const float fz, 
   }
   return bRet;
 }
-
-#if 0
-// TEST CODE; REMOVE
-v42.x =  140; 
-v42.y =  80; 
-v42.z = 10; 
-
-v43.x = -10; 
-v43.y =  30; 
-v43.z = 12; 
-
-origin.x = v42.x;
-origin.y = v42.y;
-origin.z = v42.z;
-
-p.x = 19;
-p.y = 32;
-p.z = 1; 
-#endif
-
-
-
-/*
-   float HeightPlane::getCrossing( const float fx, const float fy, const float fz )
-   {
-
-   }
-   */
-
 
 //#define DEBUG_HP
 // getHeightAt
@@ -409,15 +387,11 @@ glm::vec3 HeightPlane::getNormalAt( const float fx, const float fy )
     if( y >= 0 && y < HP_YSIZE - 1 ) {
       // Find which triangular half of the grid square { fx, fy } is in (top/right or bottom/left)
       float ix, iy;
-      float ax, ay;
       ix = fmod( fx, HP_GRIDSIZE );
       iy = fmod( fy, HP_GRIDSIZE );
 
       //assert(ix >= 0.0 && ix < HP_GRIDSIZE);
       //assert(iy >= 0.0 && iy < HP_GRIDSIZE);
-
-      ax = fx - ix;
-      ay = fy - iy;
 
       if( ix > ( HP_GRIDSIZE - iy ) ) {
         //iy = HP_GRIDSIZE - iy;
